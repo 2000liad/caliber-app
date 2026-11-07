@@ -1,0 +1,2384 @@
+<!doctype html>
+<html lang="he" dir="rtl"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0a0e13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="קליבר">
+<title>קליבר</title>
+<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a trading terminal. Sticky header with the screen tabs; every screen is
+   panes on one dark ground, a 1.65:1 two-column grid on desktop that stacks below
+   900px. Single dark look by design (Liad: dark trading terminal), so the dark
+   palette sits on bare :root. Stage 2: screens over the shared db; stage 3: the
+   ask box and queue; stage 4: the trading journal (journal/*, settings/portfolio). */
+:root{
+  color-scheme: dark;
+  --bg:#0a0e13;
+  --pane:#10161e;
+  --pane-2:#151d27;
+  --sunk:#0c1117;
+  --line:#1e2935;
+  --line-2:#2b3846;
+  --fg:#d8e0e9;
+  --fg-2:#aab6c3;
+  --muted:#7b8998;
+  --accent:#f2a93b;
+  --on-accent:#1b1305;
+  --ok:#3fbf7f;      --ok-soft:#0f2519;
+  --bad:#e5594f;     --bad-soft:#2a1416;
+  --warn:#ec8a52;    --warn-soft:#2a1a10;
+  --info:#7aa2e8;    --info-soft:#121c2e;
+  --hold:#94a1af;
+  --bar-up:#dfe6ee;
+  --bar-dn:#7d8c9c;
+  --future:#0d131a;
+  --scrim:rgba(4,7,10,.74);
+  --font-body:"IBM Plex Sans Hebrew","Arial Hebrew","Segoe UI",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --fs-2xs:.6875rem; --fs-xs:.75rem; --fs-sm:.8125rem; --fs-md:.9375rem; --fs-lg:1.0625rem;
+  --fs-xl:1.375rem; --fs-num:1.5rem; --fs-big:2rem;
+  --r:6px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--font-body);font-size:var(--fs-md);line-height:1.55;direction:rtl;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4,h5,h6{margin:0;text-wrap:balance}
+p{margin:0}
+a{color:inherit}
+a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+.mono{font-family:var(--font-mono)}
+.ext{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+.ext:hover{border-bottom-color:var(--accent)}
+
+/* tones */
+.t-ok{color:var(--ok)} .t-bad{color:var(--bad)} .t-warn{color:var(--warn)}
+.t-info{color:var(--info)} .t-hold{color:var(--hold)} .t-muted{color:var(--muted)} .t-acc{color:var(--accent)}
+
+/* ── header ── */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--bg);border-bottom:1px solid var(--line)}
+.top-in{max-width:1200px;margin-inline:auto;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px}
+.brand{display:flex;align-items:baseline;gap:10px;text-decoration:none}
+.logo{font-size:var(--fs-xl);font-weight:700;letter-spacing:-.01em}
+.tag{font-size:var(--fs-2xs);color:var(--accent);border:1px solid var(--accent);border-radius:3px;padding:0 6px;letter-spacing:.02em;white-space:nowrap}
+.tabs{display:flex;flex-wrap:wrap;gap:2px;flex:1;min-width:0}
+.tabs a{text-decoration:none;color:var(--fg-2);font-size:var(--fs-sm);font-weight:500;padding:6px 12px;border-radius:4px;display:inline-flex;gap:7px;align-items:center;white-space:nowrap}
+@media (max-width:680px){.tabs{order:3;flex-basis:100%}.tabs a{padding:6px 10px}}
+.tabs a:hover{color:var(--fg);background:var(--pane)}
+.tabs a[aria-current="page"]{color:var(--fg);background:var(--pane-2);box-shadow:inset 0 -2px 0 var(--accent)}
+.cnt{font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:600;background:var(--accent);color:var(--on-accent);border-radius:9px;min-width:18px;height:18px;padding:0 5px;display:inline-flex;align-items:center;justify-content:center}
+.sync{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
+
+/* ── page frame ── */
+.wrap{max-width:1200px;margin-inline:auto;padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:20px}
+.view{display:grid;gap:16px;min-width:0}
+.vh{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
+.vh h1{font-size:var(--fs-lg);font-weight:600}
+.vh p{color:var(--muted);font-size:var(--fs-sm)}
+.cols{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:16px;align-items:start}
+.cols.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.col{display:grid;gap:16px;min-width:0}
+@media (max-width:900px){.cols,.cols.even{grid-template-columns:minmax(0,1fr)}}
+
+.pane{background:var(--pane);border:1px solid var(--line);border-radius:var(--r);min-width:0}
+.ph{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 10px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--pane-2);border-radius:var(--r) var(--r) 0 0}
+.ph h2{font-size:var(--fs-sm);font-weight:600}
+.ph .aux{font-size:var(--fs-xs);color:var(--muted)}
+.pb{padding:12px 14px;display:grid;gap:12px;min-width:0}
+.pb.flush{padding:0;gap:0}
+.note{font-size:var(--fs-xs);color:var(--muted)}
+.empty{color:var(--muted);font-size:var(--fs-sm);padding:4px 0}
+.banner{border:1px solid var(--warn);background:var(--warn-soft);border-radius:var(--r);padding:10px 14px;font-size:var(--fs-sm)}
+
+/* ── stat strip: one object, cells divided by hairlines ── */
+.strip{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.strip.c6{grid-template-columns:repeat(6,minmax(0,1fr))}
+.strip.c8{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:980px){.strip.c6{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.strip.c6,.strip.c8{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.cell{background:var(--pane);padding:11px 14px;display:grid;gap:1px;align-content:start;min-width:0}
+.cell .k{font-size:var(--fs-xs);color:var(--muted)}
+.cell .v{font-family:var(--font-mono);font-size:var(--fs-num);font-weight:500;font-variant-numeric:tabular-nums;line-height:1.25;direction:ltr;unicode-bidi:isolate;text-align:right}
+.cell .v.txt{font-family:var(--font-body);font-size:var(--fs-md);font-weight:600;direction:rtl;line-height:1.4;padding-top:4px}
+.cell .v.sm{font-size:var(--fs-lg);padding-top:4px}
+.cell .s{font-size:var(--fs-2xs);color:var(--muted)}
+
+/* ── chips ── */
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-xs);font-weight:600;padding:1px 8px;border-radius:3px;border:1px solid currentColor;white-space:nowrap;line-height:1.6}
+.chip .g{font-family:var(--font-mono)}
+.chip.t-ok{background:var(--ok-soft)} .chip.t-bad{background:var(--bad-soft)} .chip.t-warn{background:var(--warn-soft)}
+.chip.t-info{background:var(--info-soft)} .chip.t-hold,.chip.t-muted{background:var(--sunk)}
+.chip.plain{border-color:var(--line-2);color:var(--fg-2);font-weight:500}
+
+/* ── open calls (home) ── */
+.oc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) 150px minmax(0,.95fr);gap:8px 18px;align-items:center;padding:13px 14px;border-top:1px solid var(--line);text-decoration:none;color:inherit}
+.oc:first-child{border-top:0}
+.oc:hover{background:var(--pane-2)}
+.oc-id,.oc-act,.oc-px{display:grid;gap:2px;min-width:0}
+.tkr{font-family:var(--font-mono);font-weight:600;font-size:var(--fs-lg);direction:ltr;unicode-bidi:isolate;text-align:right}
+.co{font-size:var(--fs-xs);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl{font-size:var(--fs-xs);color:var(--fg-2)}
+.oc-act b{font-size:var(--fs-md)}
+.oc-act span{font-size:var(--fs-xs);color:var(--muted)}
+.oc-act .chip{justify-self:start;margin-top:3px}
+.oc-px{text-align:left}
+.oc-px .px{font-size:var(--fs-lg);font-weight:500}
+.oc-px .mv{font-size:var(--fs-xs)}
+.oc-px .lv{font-size:var(--fs-2xs);color:var(--muted)}
+.spark{display:block;width:150px;height:44px}
+.spark-empty{font-size:var(--fs-2xs);color:var(--muted)}
+@media (max-width:760px){
+  .oc{grid-template-columns:minmax(0,1fr) auto}
+  .oc-sp{grid-column:1/-1;order:3}
+  .oc-act{grid-column:1/-1;order:4}
+}
+
+/* ── feed ── */
+.ev{display:grid;grid-template-columns:3px minmax(0,1fr);gap:12px;padding:10px 14px;border-top:1px solid var(--line);cursor:pointer}
+.ev:first-child{border-top:0}
+.ev:hover{background:var(--pane-2)}
+.ev .rail{border-radius:2px;background:var(--line-2)}
+.ev.tn-ok .rail{background:var(--ok)} .ev.tn-bad .rail{background:var(--bad)}
+.ev.tn-warn .rail{background:var(--warn)} .ev.tn-info .rail{background:var(--info)}
+.ev .top{display:flex;flex-wrap:wrap;gap:3px 9px;align-items:baseline}
+.ev .tk{font-family:var(--font-mono);font-weight:600;font-size:var(--fs-sm);text-decoration:none;direction:ltr;unicode-bidi:isolate}
+.ev .tk:hover{color:var(--accent)}
+.ev .lb{font-size:var(--fs-xs);font-weight:600;color:var(--fg-2)}
+.ev .dt{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--muted);margin-inline-start:auto}
+.ev p{font-size:var(--fs-sm);color:var(--fg-2);line-height:1.6;margin-top:2px;overflow-wrap:anywhere}
+.ev.read p{color:var(--muted)}
+.ev.read .lb{color:var(--muted)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;align-self:center}
+.clip{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.dday{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--muted);padding:12px 14px 6px;border-top:1px solid var(--line);background:var(--sunk);letter-spacing:.04em}
+.dday:first-child{border-top:0;border-radius:var(--r) var(--r) 0 0}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:5px;overflow:hidden}
+.seg button{font:inherit;font-size:var(--fs-xs);color:var(--fg-2);background:transparent;border:0;padding:5px 12px;cursor:pointer;border-inline-start:1px solid var(--line-2)}
+.seg button:first-child{border-inline-start:0}
+.seg button[aria-pressed="true"]{background:var(--pane-2);color:var(--fg);box-shadow:inset 0 -2px 0 var(--accent)}
+.btn{font:inherit;font-size:var(--fs-xs);font-weight:600;color:var(--fg);background:var(--pane-2);border:1px solid var(--line-2);border-radius:5px;padding:5px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn[disabled]{opacity:.45;cursor:default}
+.more{font-size:var(--fs-xs);color:var(--accent);text-decoration:none}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-size:var(--fs-sm);padding:9px 18px}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.sm{padding:2px 9px;font-size:var(--fs-2xs);font-weight:500}
+
+/* ── the ask box: static markup, never re-rendered, so typing survives live updates ── */
+.ask{display:grid;gap:8px;padding:14px 16px}
+.ask label{font-size:var(--fs-sm);font-weight:600}
+.ask-row{display:flex;flex-wrap:wrap;gap:8px}
+.ask input{flex:1 1 260px;min-width:0;font:inherit;font-size:var(--fs-md);color:var(--fg);background:var(--sunk);border:1px solid var(--line-2);border-radius:5px;padding:9px 12px}
+.ask input::placeholder{color:var(--muted)}
+.ask input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.ask input:disabled{opacity:.5}
+.askmsg{font-size:var(--fs-xs);color:var(--muted)}
+.askmsg[data-tone="ok"]{color:var(--ok)} .askmsg[data-tone="warn"]{color:var(--warn)} .askmsg[data-tone="bad"]{color:var(--bad)}
+.dyn{display:grid;gap:16px;min-width:0}
+.qi{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:3px 10px;padding:10px 14px;border-top:1px solid var(--line);align-items:baseline}
+.qi:first-child{border-top:0}
+.qi .qt{font-size:var(--fs-sm);overflow-wrap:anywhere}
+.qi .qt .tk{font-family:var(--font-mono);font-weight:600}
+.qi .qm{grid-column:2/-1;font-size:var(--fs-2xs);color:var(--muted);display:flex;flex-wrap:wrap;gap:3px 10px}
+.qi .qx{grid-column:2/-1;font-size:var(--fs-xs);color:var(--fg-2);overflow-wrap:anywhere}
+.qi .qx a{color:var(--accent);text-decoration:none}
+
+/* ── tables ── */
+.tbl{overflow-x:auto;min-width:0;position:relative}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+th{font-weight:500;color:var(--muted);text-align:start;font-size:var(--fs-xs);padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:baseline}
+tbody tr:last-child td{border-bottom:0}
+tr[data-href]{cursor:pointer}
+tr[data-href]:hover td{background:var(--pane-2)}
+td a.tkr-l{font-family:var(--font-mono);font-weight:600;text-decoration:none;direction:ltr;unicode-bidi:isolate}
+td a.tkr-l:hover{color:var(--accent)}
+td.wrapc{white-space:normal;min-width:16ch}
+tr.dim td{color:var(--muted)}
+
+/* ── call screen ── */
+.back{font-size:var(--fs-sm);color:var(--fg-2);text-decoration:none;justify-self:start}
+.back:hover{color:var(--accent)}
+.chead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px}
+.chead .tkr{font-size:var(--fs-big);line-height:1.1}
+.chead .co{font-size:var(--fs-md);white-space:normal}
+.cmeta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:var(--fs-xs);color:var(--fg-2)}
+.cmeta .id{font-family:var(--font-mono);color:var(--muted);direction:ltr;unicode-bidi:isolate}
+.band{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 24px;align-items:center;padding:14px 16px}
+@media (max-width:560px){.band{grid-template-columns:minmax(0,1fr)}}
+.act{display:grid;gap:3px;min-width:0}
+.act .lbl{font-size:var(--fs-xs);color:var(--muted)}
+.act b{font-size:var(--fs-xl);font-weight:700;line-height:1.2}
+.act .why{font-size:var(--fs-sm);color:var(--fg-2)}
+.pxb{display:grid;gap:2px;text-align:left}
+@media (max-width:560px){.pxb{text-align:right}}
+.pxb .px{font-family:var(--font-mono);font-size:var(--fs-big);font-weight:500;line-height:1.05;direction:ltr;unicode-bidi:isolate}
+.pxb .sub{font-size:var(--fs-xs);color:var(--muted)}
+/* charts read left to right; without this the RTL page flips every text-anchor */
+.chart,.scatter,.spark{direction:ltr}
+.chart{display:block;width:100%;min-width:600px;height:auto}
+.chart text{font-family:var(--font-mono);font-size:10.5px}
+.chart .ax{fill:var(--muted)}
+.chart .gl{stroke:var(--line);stroke-width:1}
+.chart .bu{stroke:var(--bar-up);stroke-width:1.6}
+.chart .bd{stroke:var(--bar-dn);stroke-width:1.6}
+.chart .l-entry{stroke:var(--fg-2);stroke-width:1;stroke-dasharray:4 4}
+.chart .l-tgt{stroke:var(--ok);stroke-width:1.4}
+.chart .l-stop{stroke:var(--bad);stroke-width:1.4}
+.chart .b-tgt{fill:var(--ok-soft)}
+.chart .b-ez{fill:var(--info-soft)}
+.chart .l-ez{stroke:var(--info);stroke-width:1;stroke-dasharray:2 3}
+.chart .fut{fill:var(--future)}
+.chart .vl{stroke:var(--fg-2);stroke-width:1;stroke-dasharray:3 3}
+.chart .vl-ev{stroke:var(--accent);stroke-width:1;stroke-dasharray:1 3}
+.chart .lab-entry{fill:var(--fg-2)} .chart .lab-tgt{fill:var(--ok)} .chart .lab-stop{fill:var(--bad)} .chart .lab-ez{fill:var(--info)}
+.chart .lab-ev{fill:var(--accent)}
+.chart .lh{font-family:var(--font-body);font-size:10px}
+.chart .m-tgt{fill:var(--ok);stroke:var(--pane);stroke-width:2}
+.chart .m-stop{fill:var(--warn);stroke:var(--pane);stroke-width:2}
+.chart .hit{fill:transparent}
+.chart .hit:hover{fill:var(--line);fill-opacity:.35}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:var(--fs-xs);color:var(--fg-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:16px;height:0;border-top:2px solid currentColor}
+.sw.dash{border-top-style:dashed}
+.sw.box{height:9px;border:0;border-radius:2px}
+
+dl.kv{margin:0;display:grid}
+.kvr{display:grid;grid-template-columns:minmax(0,9.5em) minmax(0,1fr);gap:10px;padding:7px 0;border-top:1px solid var(--line);align-items:baseline}
+.kvr:first-child{border-top:0;padding-top:0}
+.kvr dt{font-size:var(--fs-xs);color:var(--muted)}
+.kvr dd{margin:0;font-size:var(--fs-sm);min-width:0;overflow-wrap:anywhere}
+.kvr dd .sub{display:block;font-size:var(--fs-2xs);color:var(--muted)}
+.kvr dd .big{font-size:var(--fs-md);font-weight:600}
+
+.gv{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.gv b{font-size:var(--fs-xl);font-weight:700}
+.gv span{font-size:var(--fs-xs);color:var(--muted)}
+table.gates td{white-space:normal;padding:7px 8px}
+table.gates td.gn{font-family:var(--font-mono);color:var(--muted);width:2.2em;white-space:nowrap}
+table.gates td.gs{width:5.6em;white-space:nowrap}
+table.gates tr.is-fail td:not(.gs){color:var(--fg)}
+.gd{font-size:var(--fs-2xs);color:var(--muted);margin-top:1px}
+.fatal{font-size:var(--fs-2xs);color:var(--bad);border:1px solid var(--bad);border-radius:2px;padding:0 4px;margin-inline-start:4px;white-space:nowrap}
+.st{font-size:var(--fs-xs);font-weight:600;display:inline-flex;align-items:center;gap:5px}
+.st::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+
+.prose{font-size:var(--fs-sm);color:var(--fg-2);line-height:1.75;max-width:78ch}
+.prose b{color:var(--fg)}
+.lesson{font-size:var(--fs-sm);color:var(--fg);line-height:1.75;border-inline-start:3px solid var(--accent);padding-inline-start:12px;max-width:78ch}
+.blk{display:grid;gap:6px}
+.blk h3{font-size:var(--fs-xs);font-weight:600;color:var(--muted);letter-spacing:.02em}
+ul.list{list-style:none;margin:0;padding:0;display:grid;gap:0}
+ul.list>li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;padding:8px 0;border-top:1px solid var(--line);font-size:var(--fs-sm);color:var(--fg-2);line-height:1.65}
+ul.list>li:first-child{border-top:0;padding-top:0}
+ul.list .mk{font-family:var(--font-mono);font-weight:600;min-width:1.2em;text-align:center}
+ul.list .meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:var(--fs-2xs);color:var(--muted);margin-top:2px}
+ul.list .meta .chip{font-size:var(--fs-2xs);padding:0 6px}
+ul.cat>li{grid-template-columns:4.2em minmax(0,1fr)}
+ul.cat .when{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-2)}
+ul.cat li.past{color:var(--muted)}
+ul.cat li.past .when{color:var(--muted)}
+ul.cat li.bin .when{color:var(--accent)}
+.pips{display:inline-flex;gap:3px;vertical-align:middle}
+.pip{width:9px;height:9px;border-radius:2px;background:var(--line-2)}
+.pip.on{background:var(--ok)}
+.rsch{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:var(--fs-xs);color:var(--fg-2)}
+.finding{display:grid;gap:3px;padding:9px 0;border-top:1px solid var(--line)}
+.finding:first-child{border-top:0;padding-top:0}
+.finding h4{font-size:var(--fs-xs);font-weight:600;color:var(--fg)}
+.finding p{font-size:var(--fs-sm);color:var(--fg-2);line-height:1.7;max-width:78ch;overflow-wrap:anywhere}
+.finding a{font-size:var(--fs-2xs)}
+ol.src{margin:0;padding-inline-start:1.4em;display:grid;gap:4px;font-size:var(--fs-xs)}
+ol.src a{overflow-wrap:anywhere}
+details.pm>summary{cursor:pointer;font-size:var(--fs-sm);font-weight:600;color:var(--accent);list-style:none;padding:2px 0}
+details.pm>summary::-webkit-details-marker{display:none}
+details.pm>summary::after{content:" ▾";font-size:var(--fs-2xs)}
+details.pm[open]>summary::after{content:" ▴"}
+.md{font-size:var(--fs-sm);color:var(--fg-2);line-height:1.75;display:grid;gap:10px;max-width:84ch;margin-top:8px}
+.md .mh{color:var(--fg);font-weight:600}
+.md h3.mh{font-size:var(--fs-lg)} .md h4.mh{font-size:var(--fs-md);margin-top:6px} .md h5.mh,.md h6.mh{font-size:var(--fs-sm)}
+.md ul,.md ol{margin:0;padding-inline-start:1.3em;display:grid;gap:4px}
+.md code{font-family:var(--font-mono);font-size:.92em;background:var(--sunk);border:1px solid var(--line);border-radius:3px;padding:0 4px;direction:ltr;unicode-bidi:isolate}
+.md pre{font-family:var(--font-mono);font-size:var(--fs-xs);background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:10px;overflow-x:auto;direction:ltr;margin:0}
+.md table td,.md table th{white-space:normal}
+.md a{color:var(--accent)}
+
+/* ── performance ── */
+.callout{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 18px;align-items:center;padding:14px 16px}
+@media (max-width:560px){.callout{grid-template-columns:minmax(0,1fr)}}
+.callout .fig{font-family:var(--font-mono);font-size:2.5rem;font-weight:600;color:var(--accent);line-height:1;direction:ltr;unicode-bidi:isolate}
+.callout p{font-size:var(--fs-sm);color:var(--fg-2);line-height:1.7;max-width:72ch}
+.cal{display:grid;gap:12px}
+.calr{display:grid;grid-template-columns:5.4em minmax(0,1fr) 7.2em;gap:10px;align-items:center;font-size:var(--fs-xs)}
+.calr .bk{color:var(--fg-2)}
+.calr .rs{color:var(--muted);text-align:left}
+.ctrack{position:relative;height:22px}
+.ctrack::before{content:"";position:absolute;inset-inline:0;top:8px;height:6px;border-radius:3px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.cq{position:absolute;top:5px;width:1px;height:12px;background:var(--line-2)}
+.cseg{position:absolute;top:9.5px;height:3px}
+.cdot{position:absolute;top:6px;width:10px;height:10px;border-radius:50%;margin-inline-start:-5px}
+.cdot.said{background:var(--pane);box-shadow:inset 0 0 0 1.6px var(--fg-2)}
+.cscale{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--muted);direction:rtl}
+.bars{display:grid;gap:8px}
+.bar{display:grid;grid-template-columns:minmax(0,10.5em) minmax(0,1fr) 2em;gap:10px;align-items:center;font-size:var(--fs-xs)}
+.bar .bl{color:var(--fg-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .bt{background:var(--sunk);border:1px solid var(--line);height:14px;border-radius:2px;overflow:hidden}
+.bar .bf{height:100%;background:var(--accent);opacity:.85}
+.bar .bn{font-family:var(--font-mono);color:var(--fg-2);text-align:left}
+.scatter{display:block;width:100%;height:auto}
+/* four outcomes (31.10) */
+.score{display:grid;grid-template-columns:minmax(0,15em) minmax(0,1fr);gap:14px 26px;align-items:center;padding:16px 18px}
+@media (max-width:720px){.score{grid-template-columns:minmax(0,1fr)}}
+.sc-main{display:grid;gap:4px}
+.sc-main .k{font-size:var(--fs-sm);color:var(--fg-2);font-weight:600}
+.sc-main .fig{font-family:var(--font-mono);font-size:3rem;font-weight:600;color:var(--accent);line-height:1;direction:ltr;unicode-bidi:isolate;text-align:right}
+.sc-main .s{font-size:var(--fs-xs);color:var(--muted);line-height:1.6}
+.sc-sub{display:grid;gap:12px}
+.sl{display:grid;grid-template-columns:minmax(0,10em) 3.4em minmax(0,1fr);grid-template-areas:"k v bar" "s s s";gap:3px 10px;align-items:center}
+.sl-k{grid-area:k;font-size:var(--fs-sm);color:var(--fg-2)}
+.sl-v{grid-area:v;font-family:var(--font-mono);font-weight:600;direction:ltr;unicode-bidi:isolate;text-align:right}
+.sl-bar{grid-area:bar;height:8px;border-radius:4px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden}
+.sl-bar span{display:block;height:100%;background:var(--ok)}
+.sl-s{grid-area:s;font-size:var(--fs-2xs);color:var(--muted)}
+.octiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0 6px}
+@media (max-width:860px){.octiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.oct{display:grid;gap:4px;padding:12px 14px;background:var(--pane);border:1px solid var(--line);border-top:3px solid currentColor;border-radius:var(--r)}
+.oct .ot-l{font-size:var(--fs-sm);font-weight:700;display:flex;gap:6px;align-items:center}
+.oct .ot-n{font-family:var(--font-mono);font-size:2.1rem;font-weight:600;line-height:1.1;color:var(--fg);direction:ltr;unicode-bidi:isolate;text-align:right}
+.oct .ot-p{font-size:var(--fs-xs);color:var(--fg-2)}
+.oct .ot-d{font-size:var(--fs-2xs);color:var(--muted);line-height:1.5}
+.ocu{margin:4px 0 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ocm td{white-space:nowrap} .ocm thead th{white-space:normal}
+.ocm .cv{display:inline-flex;gap:8px;align-items:center}
+.ocm tbody th{font-weight:600;color:var(--fg-2);text-align:start}
+.ocmons{display:grid;gap:7px}
+.ocmon{display:grid;grid-template-columns:3.6em minmax(0,1fr) 6.2em;gap:10px;align-items:center;font-size:var(--fs-xs)}
+.ocmon .mo{font-family:var(--font-mono);color:var(--fg-2)}
+.ocmon .mt{font-family:var(--font-mono);text-align:left;direction:ltr;unicode-bidi:isolate}
+.ocbar{display:flex;gap:2px;height:14px}
+.ocbar span{display:block;height:100%;border-radius:2px}
+.oc-win{background:var(--ok)} .oc-avoided{background:var(--ok);opacity:.55} .oc-loss{background:var(--bad)}
+.oc-missed{background:var(--warn)}
+.legend .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-inline-end:5px;vertical-align:-1px}
+details.more{margin-top:16px;border:1px solid var(--line);border-radius:var(--r);background:var(--pane)}
+details.more>summary{cursor:pointer;padding:12px 14px;font-weight:600;color:var(--fg-2);font-size:var(--fs-sm)}
+details.more>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+details.more .more-b{padding:0 14px 14px;display:grid;gap:12px}
+.scatter text{font-family:var(--font-mono);font-size:10.5px;fill:var(--muted)}
+.scatter .lh{font-family:var(--font-body);font-size:11px;fill:var(--fg-2)}
+
+/* ── trading journal (stage 4) ── */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.jbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:12px 14px}
+.jbar .grow{flex:1 1 220px;min-width:0}
+.inp{font:inherit;font-size:var(--fs-sm);color:var(--fg);background:var(--sunk);border:1px solid var(--line-2);border-radius:5px;padding:7px 10px;min-width:0}
+.inp::placeholder{color:var(--muted)}
+.inp:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.inp:disabled,.inp[readonly]{opacity:.6}
+.inp.ltr{direction:ltr;text-align:right}
+.jbar .grow .inp{width:100%}
+.pf{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:var(--fs-xs);color:var(--fg-2)}
+.pf .inp{width:9.5em}
+.pfmsg{font-size:var(--fs-2xs);color:var(--muted)}
+.pfmsg[data-tone="ok"]{color:var(--ok)} .pfmsg[data-tone="bad"]{color:var(--bad)}
+table.jt td{vertical-align:middle}
+table.jt td .sub{display:block;font-size:var(--fs-2xs);color:var(--muted)}
+table.jt .tj{font-family:var(--font-mono);font-weight:600;direction:ltr;unicode-bidi:isolate}
+table.jt .sub.clip1{max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.jt .chip{font-size:var(--fs-2xs);padding:0 6px;text-decoration:none;margin-inline-start:4px}
+th .sort{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;display:inline-flex;gap:4px;align-items:center}
+th .sort:hover,th[aria-sort] .sort{color:var(--fg)}
+.sarr{font-size:.8em;color:var(--accent)}
+.acts{display:flex;gap:6px}
+.fchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.mchart{display:block;width:100%;min-width:420px;height:auto;direction:ltr}
+.mchart text{font-family:var(--font-mono);font-size:10.5px;fill:var(--muted)}
+.mchart text.vl{fill:var(--fg-2)}
+.mchart .gl{stroke:var(--line);stroke-width:1}
+.mchart .z{stroke:var(--line-2);stroke-width:1}
+.mchart .up{fill:var(--ok)} .mchart .dn{fill:var(--bad)}
+.mchart .dim{opacity:.3}
+.mchart .hit{fill:transparent}
+.mchart .hit[data-jmonth]{cursor:pointer}
+.mchart .hit:hover{fill:var(--line);fill-opacity:.35}
+.xp{display:grid;gap:2px}
+.xrow{display:grid;grid-template-columns:minmax(0,8.5em) minmax(0,1fr) auto;gap:3px 12px;align-items:center;padding:7px 8px;border-radius:4px;cursor:pointer;font:inherit;color:inherit;background:none;border:0;text-align:start;width:100%}
+.xrow:hover,.xrow[aria-pressed="true"]{background:var(--pane-2)}
+.xrow .xl{font-size:var(--fs-xs);color:var(--fg-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xrow .xt{display:block;background:var(--sunk);border:1px solid var(--line);height:12px;border-radius:2px;overflow:hidden}
+.xrow .xf{display:block;height:100%;background:var(--accent);opacity:.85;border-radius:2px 0 0 2px}
+.xrow .xv{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-2);direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.xrow .xk{grid-column:1/-1;font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--muted);overflow-wrap:anywhere}
+.band-cta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;border-top:1px solid var(--line);padding-top:12px}
+/* the trade form: one static sheet over the page, so typing survives live db updates */
+.modal{position:fixed;inset:0;z-index:50;background:var(--scrim);display:grid;place-items:center;padding-top:max(16px,env(safe-area-inset-top,0px));padding-bottom:max(16px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet{width:min(100%,620px);max-height:100%;overflow:auto;background:var(--pane);border:1px solid var(--line-2);border-radius:var(--r)}
+.sheet .ph{position:sticky;top:0;z-index:1}
+.sheet .pb{gap:14px}
+.fgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+@media (max-width:560px){.fgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.fld{display:grid;gap:4px;min-width:0;align-content:start}
+.fld.wide{grid-column:1/-1}
+.fld label{font-size:var(--fs-xs);color:var(--muted)}
+.fld .inp{width:100%}
+textarea.inp{resize:vertical;min-height:4em;line-height:1.5}
+.fsec{grid-column:1/-1;font-size:var(--fs-xs);font-weight:600;color:var(--muted);letter-spacing:.02em;border-top:1px solid var(--line);padding-top:10px}
+.sizing{border:1px solid var(--line-2);background:var(--sunk);border-radius:5px;padding:10px 12px;font-size:var(--fs-sm);color:var(--fg-2);display:grid;gap:4px}
+.sizing b{color:var(--fg)}
+.factions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.factions .sp{flex:1}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.fmsg{font-size:var(--fs-xs);color:var(--muted);min-height:1.3em}
+.fmsg[data-tone="bad"]{color:var(--bad)} .fmsg[data-tone="warn"]{color:var(--warn)} .fmsg[data-tone="ok"]{color:var(--ok)}
+.toast{position:fixed;inset-inline:0;bottom:0;margin-inline:auto;margin-bottom:calc(16px + env(safe-area-inset-bottom,0px));width:max-content;max-width:calc(100% - 32px);z-index:60;background:var(--pane-2);border:1px solid var(--ok);color:var(--fg);border-radius:5px;padding:9px 14px;font-size:var(--fs-sm)}
+
+/* ── ask Caliber (stage 5): a static side sheet, so typing survives live db updates ── */
+.drawer{position:fixed;inset:0;z-index:50;background:var(--scrim);display:flex;justify-content:flex-end;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.dsheet{width:min(100%,540px);height:100%;min-height:0;background:var(--pane);border-inline-start:1px solid var(--line-2);display:grid;grid-template-rows:auto minmax(0,1fr) auto;padding-left:env(safe-area-inset-left,0px)}
+@media (max-width:560px){.dsheet{padding-right:env(safe-area-inset-right,0px);border-inline-start:0}}
+.dsheet .ph{border-radius:0}
+.qa-list{overflow-y:auto;padding:14px;display:grid;gap:16px;align-content:start;min-height:0}
+.qa-item{display:grid;gap:6px;min-width:0}
+.qa-q{justify-self:start;max-width:92%;background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:8px 11px;display:grid;gap:2px}
+.qa-q p{font-size:var(--fs-sm);color:var(--fg);overflow-wrap:anywhere;white-space:pre-wrap}
+.qa-meta{font-size:var(--fs-2xs);color:var(--muted)}
+.qa-a{min-width:0;display:grid;gap:4px}
+.qa-a .md{margin-top:0}
+.qa-think{animation:qa-pulse 1.4s ease-in-out infinite}
+@keyframes qa-pulse{50%{opacity:.4}}
+.qa-empty{display:grid;gap:10px}
+.qa-ex{font:inherit;font-size:var(--fs-xs);background:none;cursor:pointer;white-space:normal;text-align:start}
+.qa-ex:hover{border-color:var(--accent);color:var(--fg)}
+.qa-form{border-top:1px solid var(--line);padding:12px 14px;display:grid;gap:8px;background:var(--pane-2)}
+.qa-form textarea{width:100%;resize:vertical;min-height:4.5em;max-height:40vh;line-height:1.5}
+
+/* ── GitHub connection (Pages port, 7.11): the token lives in this browser only ── */
+.ghc{display:grid;gap:10px;padding:14px 16px}
+.ghc .prose{max-width:84ch}
+.ghc ol{margin:0;padding-inline-start:1.3em;display:grid;gap:4px;font-size:var(--fs-sm);color:var(--fg-2);line-height:1.7;max-width:84ch}
+.ghc .ask-row .inp{flex:1 1 260px;font-family:var(--font-mono);font-size:var(--fs-sm);padding:9px 12px}
+.ghc .mono{direction:ltr;unicode-bidi:isolate}
+.linkbtn{font:inherit;color:var(--accent);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+
+footer{font-size:var(--fs-xs);color:var(--muted);border-top:1px solid var(--line);padding-top:12px;line-height:1.7;max-width:96ch}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top" lang="he" dir="rtl">
+  <div class="top-in">
+    <a class="brand" href="#home"><span class="logo">קליבר</span></a>
+    <nav class="tabs" aria-label="מסכים">
+      <a href="#home" data-tab="home">בית</a>
+      <a href="#journal" data-tab="journal">יומן מסחר</a>
+      <a href="#perf" data-tab="perf">ביצועים</a>
+      <a href="#screen" data-tab="screen">מה עובר היום</a>
+      <a href="#feed" data-tab="feed">עדכונים <span class="cnt" id="feedCnt" hidden></span></a>
+    </nav>
+    <div class="sync" id="syncStamp">מתחבר לגיטהאב…</div>
+  </div>
+</header>
+
+<main class="wrap" lang="he" dir="rtl">
+  <div id="banner"></div>
+  <section class="pane" id="ghConnect" aria-labelledby="ghcTitle" hidden>
+    <div class="ph"><h2 id="ghcTitle">חיבור לריפו</h2><span class="aux mono">2000liad/caliber-relay</span></div>
+    <form class="ghc" id="ghcForm" autocomplete="off" novalidate>
+      <p class="prose" id="ghcLead">האפליקציה קוראת וכותבת ישירות לריפו הפרטי <span class="mono">caliber-relay</span> בגיטהאב. כדי שתוכל לגשת אליו, היא צריכה טוקן גישה שאתה יוצר בעצמך. הטוקן נשמר רק בדפדפן הזה, ונשלח רק לגיטהאב.</p>
+      <ol>
+        <li>בגיטהאב: Settings ← Developer settings ← Personal access tokens ← <b>Fine-grained tokens</b> ← Generate new token.</li>
+        <li>Repository access: <b>Only select repositories</b>, ובו רק <span class="mono">caliber-relay</span>. תוקף: עד שנה.</li>
+        <li>Repository permissions: <b>Contents</b> ו-<b>Issues</b> על Read and write. (Metadata: Read נוסף מעצמו.)</li>
+        <li>העתק את הטוקן והדבק כאן. בכל מכשיר מדביקים פעם אחת.</li>
+      </ol>
+      <label class="sr" for="ghcInput">טוקן הגישה</label>
+      <div class="ask-row"><input class="inp" id="ghcInput" type="password" spellcheck="false" autocapitalize="off" placeholder="github_pat_…"><button type="submit" class="btn primary" id="ghcBtn">התחבר</button></div>
+      <p class="askmsg" id="ghcMsg" aria-live="polite"></p>
+    </form>
+  </section>
+  <section class="view" id="v-home" aria-label="בית">
+    <div class="vh"><h1>בית</h1><p>שלח טיקר לקליבר, ועקוב אחרי הקריאות הפתוחות ומה שקרה לאחרונה.</p></div>
+    <section class="pane">
+      <form class="ask" id="askForm" autocomplete="off" novalidate>
+        <label for="askInput">טיקר או בקשה</label>
+        <div class="ask-row">
+          <input id="askInput" name="ask" maxlength="300" dir="auto" placeholder="NVDA, או: תבדוק שוב את IREN" disabled>
+          <button type="submit" class="btn primary" id="askBtn" disabled>שלח לקליבר</button>
+        </div>
+        <p class="askmsg" id="askMsg" aria-live="polite">מתחבר לגיטהאב…</p>
+      </form>
+    </section>
+    <div class="dyn" id="home-dyn"><p class="empty">טוען את היומן מהריפו…</p></div>
+  </section>
+  <section class="view" id="v-call" aria-label="קריאה" hidden></section>
+  <section class="view" id="v-journal" aria-label="יומן מסחר" hidden>
+    <div class="vh"><h1>יומן מסחר</h1><p>העסקאות שלך, פתוחות וסגורות, עם קישור לקריאה של קליבר כשיש. המנוע בענן קורא מכאן את הפוזיציות הפתוחות.</p></div>
+    <section class="pane"><div class="jbar">
+      <button type="button" class="btn primary" id="jAdd" data-jact="add" disabled>עסקה חדשה</button>
+      <div class="grow"><label class="sr" for="jSearch">סינון העסקאות</label><input class="inp" id="jSearch" type="search" placeholder="סינון לפי טיקר, סקטור או הערה" autocomplete="off" dir="auto"></div>
+      <form class="pf" id="pfForm" novalidate autocomplete="off">
+        <label for="pfInput">גודל התיק ($)</label><input class="inp ltr" id="pfInput" inputmode="decimal" placeholder="למשל 250,000" disabled>
+        <button type="submit" class="btn" id="pfBtn" disabled>שמור</button><span class="pfmsg" id="pfMsg" aria-live="polite">לחישוב כמות לפי קליבר</span>
+      </form>
+    </div></section>
+    <div class="dyn" id="journal-dyn"><p class="empty">טוען את יומן המסחר מהריפו…</p></div>
+  </section>
+  <section class="view" id="v-perf" aria-label="ביצועים" hidden></section>
+  <section class="view" id="v-screen" aria-label="מה עובר היום" hidden></section>
+  <section class="view" id="v-feed" aria-label="עדכונים" hidden></section>
+  <footer>הכול חי בריפו הפרטי <span class="mono">caliber-relay</span>: מקור האמת של הקריאות הוא קבצי ה-jsonl ב-<span class="mono">trading/</span>, והמנוע בענן כותב מהם את מה שהמסכים קוראים ב-<span class="mono">app/data/</span>. יומן המסחר וגודל התיק נשמרים ב-<span class="mono">app/user/</span>, ישירות מהדף. כל בקשה או שאלה נפתחת כ-issue בריפו, והמנוע מתעורר עליה.
+    <b>פגיעה</b> פירושה שהמחיר נגע ביעד בשלב כלשהו עד הדדליין, לפי שיא ושפל תוך-יומי. יום הקריאה עצמו לא נספר.
+    אין כאן פעולת מסחר מול ברוקר, וזה לא ייעוץ השקעות. <button type="button" class="linkbtn" id="ghOut" hidden>התנתק מהמכשיר הזה</button></footer>
+</main>
+
+<div class="modal" id="tm" lang="he" dir="rtl" hidden>
+  <form class="sheet" id="tmForm" role="dialog" aria-modal="true" aria-labelledby="tmTitle" novalidate autocomplete="off">
+    <div class="ph"><h2 id="tmTitle">עסקה חדשה</h2><button type="button" class="btn sm" data-tm="cancel" aria-label="סגור את הטופס">✕</button></div>
+    <div class="pb">
+      <div class="sizing" id="tmSizing" hidden></div>
+      <div class="fgrid">
+        <div class="fld" id="tf-ticker"><label for="tmTicker">טיקר</label><input class="inp ltr" id="tmTicker" maxlength="20"></div>
+        <div class="fld" id="tf-dir"><label for="tmDir">כיוון</label><select class="inp" id="tmDir"><option value="Long">לונג</option><option value="Short">שורט</option></select></div>
+        <div class="fld" id="tf-cls"><label for="tmCls">סוג</label><select class="inp" id="tmCls"><option value="Equity">מניה</option><option value="ETF">תעודת סל</option><option value="Option">אופציה (חוזה = 100)</option><option value="Bond">אג״ח</option><option value="Other">אחר</option></select></div>
+        <div class="fld" id="tf-entry"><label for="tmEntry">מחיר כניסה</label><input class="inp ltr" id="tmEntry" inputmode="decimal"></div>
+        <div class="fld" id="tf-qty"><label for="tmQty">כמות</label><input class="inp ltr" id="tmQty" inputmode="decimal"></div>
+        <div class="fld" id="tf-entryDate"><label for="tmEntryDate">תאריך כניסה</label><input class="inp ltr" id="tmEntryDate" type="date"></div>
+        <div class="fld" id="tf-sector"><label for="tmSector">סקטור</label><input class="inp" id="tmSector" list="tmSectors" maxlength="40" dir="auto"><datalist id="tmSectors"></datalist></div>
+        <div class="fld" id="tf-lev"><label for="tmLev">מינוף</label><input class="inp ltr" id="tmLev" inputmode="decimal" placeholder="1"></div>
+        <div class="fld" id="tf-call"><label for="tmCall">קריאה של קליבר</label><select class="inp" id="tmCall"></select></div>
+        <div class="fsec" id="tf-exitHead">יציאה</div>
+        <div class="fld" id="tf-exit"><label for="tmExit">מחיר יציאה</label><input class="inp ltr" id="tmExit" inputmode="decimal"></div>
+        <div class="fld" id="tf-exitDate"><label for="tmExitDate">תאריך יציאה</label><input class="inp ltr" id="tmExitDate" type="date"></div>
+        <div class="fld" id="tf-comm"><label for="tmComm">עמלות, סה״כ ($)</label><input class="inp ltr" id="tmComm" inputmode="decimal"></div>
+        <div class="fld wide" id="tf-notes"><label for="tmNotes">הערות</label><textarea class="inp" id="tmNotes" maxlength="500" rows="2" dir="auto"></textarea></div>
+      </div>
+      <p class="fmsg" id="tmMsg" aria-live="polite"></p>
+      <div class="factions"><button type="submit" class="btn primary" id="tmSave">שמור</button><button type="button" class="btn" data-tm="cancel">ביטול</button><span class="sp"></span><button type="button" class="btn danger" id="tmDel" data-tm="del" hidden>מחק עסקה</button></div>
+    </div>
+  </form>
+</div>
+<div class="drawer" id="qa" lang="he" dir="rtl" hidden>
+  <section class="dsheet" role="dialog" aria-modal="true" aria-labelledby="qaTitle">
+    <div class="ph"><h2 id="qaTitle">שאל את קליבר</h2><button type="button" class="btn sm" data-qa="close" aria-label="סגור את השאלות">✕</button></div>
+    <div class="qa-list" id="qaList"></div>
+    <form class="qa-form" id="qaForm" novalidate autocomplete="off">
+      <label class="sr" for="qaInput">השאלה על הקריאה</label>
+      <textarea class="inp" id="qaInput" rows="3" maxlength="1500" dir="auto" placeholder="שאלה על הקריאה הזו"></textarea>
+      <div class="factions">
+        <button type="submit" class="btn primary" id="qaDeep">שלח לקליבר</button>
+      </div>
+      <p class="fmsg" id="qaMsg" aria-live="polite"></p>
+    </form>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" lang="he" dir="rtl" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const TZ = "Asia/Jerusalem";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const isNum = v => typeof v === "number" && isFinite(v);
+const safeUrl = u => typeof u === "string" && /^https?:\/\//i.test(u) ? u : null;
+const host = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return u; } };
+const ext = (u, t) => { const s = safeUrl(u); return s ? `<a class="ext" href="${esc(s)}" target="_blank" rel="noopener noreferrer">${esc(t || host(s))}</a>` : ""; };
+const n2 = v => isNum(v) ? v.toFixed(2) : "–";
+const num = (v, d) => isNum(v) ? (d == null ? String(v) : v.toFixed(d)) : "–";
+const pct = (v, d = 1) => isNum(v) ? (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d) + "%" : "–";
+const N = s => `<span class="num">${s}</span>`;
+const dm = iso => iso ? iso.slice(8, 10) + "." + iso.slice(5, 7) : "–";
+const dmy = iso => iso ? dm(iso) + "." + iso.slice(2, 4) : "–";
+const WD = ["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
+const wday = iso => WD[new Date(iso + "T00:00:00Z").getUTCDay()] || "";
+const today = () => { try { return new Intl.DateTimeFormat("en-CA", {timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit"}).format(new Date()); } catch (e) { return new Date().toISOString().slice(0, 10); } };
+const dayDiff = (a, b) => Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 864e5);
+const stamp = iso => { const t = new Date(iso); return isNaN(t) ? String(iso || "") : t.toLocaleString("he-IL", {timeZone: TZ, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"}); };
+function ago(iso){
+  const t = Date.parse(iso); if (!isFinite(t)) return "";
+  const m = Math.round((Date.now() - t) / 6e4);
+  if (m < 1) return "עכשיו";
+  if (m < 60) return `לפני ${m} דק׳`;
+  const h = Math.round(m / 60); if (h < 24) return h === 1 ? "לפני שעה" : `לפני ${h} שעות`;
+  const d = Math.round(h / 24); return d === 1 ? "אתמול" : `לפני ${d} ימים`;
+}
+const daysTxt = d => !isNum(d) ? "" : d > 1 ? `עוד ${d} ימים` : d === 1 ? "מחר" : d === 0 ? "היום" : "עבר הדדליין";
+
+/* ── labels, ported from bin/dashboard.py and dashboard.tpl.html ── */
+/* Raw price facts. Since 31.10 they are neutral: whether a touch of the target was good news depends on
+   what Caliber recommended, so the colour lives in the four outcomes below. "miss" used to read "פספוס";
+   that word now means a missed opportunity, so the deadline-without-a-touch case reads "הדדליין עבר". */
+const V = {hit:{t:"info",g:"●",l:"נגעה ביעד"}, miss:{t:"muted",g:"–",l:"הדדליין עבר"}, stopped:{t:"info",g:"▲",l:"נעצרה בסטופ"}, open:{t:"info",g:"○",l:"פתוחה"}};
+const vchip = v => { const c = V[v] || V.open; return `<span class="chip t-${c.t}"><span class="g" aria-hidden="true">${c.g}</span>${c.l}</span>`; };
+/* Liad's four outcomes (31.10): what Caliber recommended × what the price touched first.
+   A call that recommended a trade (buy, or sell for a short) is "entered"; stand_aside is not.
+   A deadline with neither touched counts against an entry (the target never came) and for an avoidance
+   (nothing was missed): Liad's rule, 31.10. So every closed call lands in one of the four. */
+const OC = {
+  win:     {l:"פגיעה",          t:"ok",   g:"●", d:"המליץ להיכנס, והמחיר נגע ביעד לפני הסטופ"},
+  loss:    {l:"נכשל",           t:"bad",  g:"✕", d:"המליץ להיכנס, והמחיר נגע בסטופ לפני היעד, או שהדדליין עבר בלי שנגע ביעד"},
+  avoided: {l:"הימנעות מוצלחת", t:"ok",   g:"◆", d:"המליץ לא להיכנס, והמחיר נגע בסטופ, או שהדדליין עבר בלי שנגע ביעד"},
+  missed:  {l:"פספוס",          t:"warn", g:"▲", d:"המליץ לא להיכנס, והמחיר נגע ביעד לפני הסטופ"}
+};
+const OC_ORDER = ["win", "loss", "avoided", "missed"];
+const entered = c => c.stance === "buy" || c.stance === "sell";
+function outcomeOf(c){
+  if (!c || c.bucket !== "closed") return null;
+  if (c.verdict === "hit") return entered(c) ? "win" : "missed";
+  return entered(c) ? "loss" : "avoided";       // stopped, or the deadline passed without a touch
+}
+const ocChip = k => { const o = OC[k]; return o ? `<span class="chip t-${o.t}" title="${esc(o.d)}"><span class="g" aria-hidden="true">${o.g}</span>${o.l}</span>` : ""; };
+function ocStats(closed){
+  const n = {win:0, loss:0, avoided:0, missed:0}; let dEnter = 0, dAside = 0;
+  for (const c of closed){
+    const k = outcomeOf(c); if (k) n[k]++;
+    if (k && c.verdict !== "hit" && c.verdict !== "stopped"){ if (entered(c)) dEnter++; else dAside++; }
+  }
+  const enterN = n.win + n.loss, asideN = n.avoided + n.missed, dec = enterN + asideN, right = n.win + n.avoided;
+  const rate = (a, b) => b ? a / b * 100 : null;
+  return {n, dec, right, score: rate(right, dec), dEnter, dAside,
+          enterN, enterRate: rate(n.win, enterN), asideN, asideRate: rate(n.avoided, asideN)};
+}
+const pctTxt = v => isNum(v) ? Math.round(v) + "%" : "–";
+const G = {"NO TRADE":"פסול", "RESTRUCTURE":"לתקן", "PASS":"עובר"};
+const GT = {"NO TRADE":"bad", "RESTRUCTURE":"warn", "PASS":"ok"};
+/* A PASS that cleared a fatal margin gate by under 2 points reads "on the edge". */
+const edgy = g => !!g && g.verdict === "PASS" && (g.on_edge || []).length > 0;
+const gLbl = g => !g ? "לא חושב" : edgy(g) ? "עובר — על הסף" : (G[g.verdict] || g.verdict);
+const gTone = g => !g ? "muted" : edgy(g) ? "warn" : (GT[g.verdict] || "muted");
+const STANCE = s => s === "stand_aside" ? "לעמוד בצד" : s === "buy" ? "קנייה" : s === "sell" ? "מכירה" : (s || "–");
+const DIR = d => d === "short" ? "שורט" : "לונג";
+const ZO = {never_filled:"לא התמלא מעולם", hit:"התמלא ואז נגע ביעד", stopped:"התמלא ואז נעצר", miss:"התמלא ולא הגיע ליעד", open:"התמלא, עדיין רץ"};
+const NOTE = {"no trading days since the call yet":"עוד לא היה יום מסחר מאז שניתנה הקריאה.", "window has not started":"חלון המדידה עוד לא נפתח."};
+const noteShort = n => n === "window has not started" ? "חלון המדידה עוד לא נפתח" : "עוד לא היה יום מסחר";
+const FEED = {
+  new_call:["המלצה חדשה","call"], became_tradable:["הפכה לכדאית","good"], gate_now_passes:["הפכה לכדאית","good"],
+  big_move:["תנועה חריגה","move"], note:["חדשות שנבדקו","move"], entry_zone_live:["אזור כניסה התמלא","move"],
+  invalidation_breached:["רמת ביטול התזה נפרצה","bad"], stop_hit:["נעצרה בסטופ","bad"], target_hit:["נגעה ביעד","good"],
+  closed:["נסגרה","call"], reassess_due:["מועד בדיקה חוזרת","move"], assumption_due:["הנחה הגיעה למועדה","move"],
+  answer_ready:["תשובה מוכנה","call"], engine_error:["שגיאת מנוע","bad"]
+};
+const QS = {pending:["ממתין","info","…"], running:["רץ עכשיו","acc","▶"], done:["מוכן","ok","✔"], failed:["נכשל","bad","✘"], cancelled:["בוטל","muted","–"]};
+const TONE = {good:"ok", bad:"bad", move:"warn", call:"info"};
+/* The nine gates of bin/gate.py. Fatal = 4, 5, 8, 9. The last field is the reason in
+   words Liad can act on (dashboard.py GATE_REASON, plus 6 and 9). */
+const GATES = [
+  ["1","יעד בר-השגה ומעל סף העלויות",false,"היעד רחוק מדי ביחס למה שהמניה באמת עושה"],
+  ["2","סטופ מחוץ לרעש",false,"הסטופ קרוב מדי ורעש רגיל יפגע בו"],
+  ["3","יחס סיכוי/סיכון ≥ 1.00",false,"הסיכון גדול מהרווח"],
+  ["4","תוחלת ≥ 0.5%",true,"התוחלת אפסית, אין רווח צפוי לאורך זמן"],
+  ["5","base rate ≥ 45%",true,"הסיכוי להגיע ליעד נמוך מדי"],
+  ["6","ביטחון לא עולה על ה-base rate",false,"הביטחון שהוצהר גבוה ממה שההיסטוריה תומכת בו"],
+  ["7","שער הבסיס יציב בין תקופות",false,"המשטר לא יציב, העבר לא מתאר את ההווה"],
+  ["8","מרווח עמידות ≥ 8 נק׳",true,"אין מספיק מרווח ביטחון, טעות קטנה הופכת את העסקה למפסידה"],
+  ["9","מרווח עמידות במשטר העדכני ≥ 8 נק׳",true,"בשנה האחרונה המרווח דק מדי"]
+];
+const GREP = {pass:["עובר","ok"], fail:["נכשל","bad"], fail_fatal:["נכשל, קטלני","bad"], conditional_pass:["עובר בתנאי","warn"], "n/a":["לא רלוונטי","muted"]};
+const ERR = {
+  timing:["תזמון","התזה נכונה והחלון קצר מדי. התנועה הגיעה, או תגיע, מאוחר יותר."],
+  magnitude:["עוצמה","כיוון נכון ויעד רחוק מדי. התנועה הייתה קטנה מהצפוי."],
+  direction:["כיוון","הכיוון הפוך. הקריאה על המניה התהפכה."],
+  catalyst_failed:["קטליזטור לא קרה","הקטליזטור שעליו נבנתה התזה לא קרה, או נדחה אל מעבר לדדליין."],
+  catalyst_no_move:["קטליזטור בלי תנועה","הקטליזטור קרה כצפוי והמניה התעלמה. מה שכבר היה במחיר הוערך לא נכון."],
+  macro_override:["המאקרו גבר","הקריאה על החברה הייתה בסדר, והשוק או הסקטור גברו עליה."],
+  idiosyncratic_shock:["הלם ספציפי","אירוע חברה שלא היה אפשר לצפות: הונאה, תביעה, מיזוג, אזהרת תחזית."],
+  data_error:["טעות נתונים","העבודה נשענה על עובדה שגויה או ישנה."],
+  crowded:["כבר במחיר","התנועה כבר הייתה מתומחרת לפני הקריאה."],
+  no_catalyst:["בלי קטליזטור","שום אירוע מתוזמן לא הכריח תמחור מחדש בחלון. נחזתה סחיפה, לא אירוע."],
+  stop_too_tight:["סטופ צמוד מדי","הכיוון והיעד נכונים, אבל הסטופ ישב בתוך הרעש ונפגע לפני שהתנועה הגיעה."],
+  entry_never_filled:["אזור הכניסה לא התמלא","הכיוון נכון, אבל אזור הכניסה המותנה לא נסחר, ולכן ההמלצה לא יצרה פוזיציה."],
+  target_too_conservative:["יעד שמרני מדי","הכיוון נכון והיעד נמוך מדי. התנועה עברה אותו בהרבה."]
+};
+const errName = k => (ERR[k] || [String(k || "").replace(/_/g, " ")])[0];
+const RLAB = {news:"חדשות", earnings_date:"מועד דוח", analyst_targets:"יעדי אנליסטים", short_interest:"שורט", insider_activity:"מקורבים", primary_source:"מקור ראשוני", company_announcements:"הודעות החברה"};
+const AKIND = {catalyst:"קטליזטור", technical:"טכני", company:"חברה", macro:"מאקרו", sector:"סקטור", regime:"משטר"};
+const REAL = {hard_exit:"יציאה מחייבת", partial:"מימוש חלקי", runner:"היתרה", time_stop:"סטופ זמן"};
+
+/* ── state ── */
+const S = {
+  db:null, dbState:"loading", meta:undefined, stats:undefined, screen:undefined, calls:null, events:null,
+  engine:undefined, queue:[], pending:[], report:{id:null, doc:undefined}, outcome:{id:null, doc:undefined},
+  route:"home", callId:null, hist:"all", feedF:"all", errors:{},
+  journal:null, portfolio:undefined, qa:[], callsRaw:null, live:null,
+  j:{status:"all", sort:"entryDate", dir:"desc", q:"", month:null, sector:null}
+};
+let callSubs = [];
+
+/* ── feed read state: per-viewer convenience, so localStorage. Unread = newer than
+   `since` and not clicked. First visit: only the newest day's events count as new. ── */
+const FEED_KEY = "caliber.app.feed.v1";
+let seen = null;
+function loadSeen(){
+  try { const j = JSON.parse(localStorage.getItem(FEED_KEY) || "null"); if (j && typeof j === "object") return {since: String(j.since || ""), read: new Set(Array.isArray(j.read) ? j.read : [])}; } catch (e) {}
+  return null;
+}
+function saveSeen(){ try { localStorage.setItem(FEED_KEY, JSON.stringify({since: seen.since, read: [...seen.read].slice(-400)})); } catch (e) {} }
+function initSeen(){
+  if (seen || !S.events) return;
+  seen = loadSeen();
+  if (!seen){
+    const newest = S.events.reduce((m, e) => e.date > m ? e.date : m, "");
+    const d = newest ? new Date(Date.parse(newest + "T00:00:00Z") - 864e5).toISOString().slice(0, 10) : "";
+    seen = {since: d, read: new Set()};
+    saveSeen();
+  }
+}
+const unread = e => !!seen && e.date > seen.since && !seen.read.has(e._id);
+function markRead(id){ if (!seen || !id || seen.read.has(id)) return; seen.read.add(id); saveSeen(); }
+function markAll(){
+  if (!seen || !S.events) return;
+  seen.since = S.events.reduce((m, e) => e.date > m ? e.date : m, seen.since); seen.read = new Set(); saveSeen();
+}
+
+/* ── live: while the Mac is off, the cloud writes the day's evaluation of every call the ledger
+   has not graded to live/<day> (bin/bridge.py live, CLOUD-ENGINE.md 4ג). A call shows it when it
+   is evaluated further than its own document; the Mac's next sync catches up and it drops away. ── */
+function mergeLive(){
+  if (!S.callsRaw){ S.calls = null; return; }
+  const L = (S.live && S.live.calls) || {};
+  S.calls = S.callsRaw.map(c => {
+    const l = L[c.id || c._id];
+    return l && String(l.evaluated_through || "") > String(c.evaluated_through || "")
+      ? Object.assign({}, c, l, {_live: S.live.computed_at || S.live.day || true, note: l.note || null}) : c;
+  });
+}
+
+/* ── helpers on calls ── */
+const callsBy = () => S.calls || [];
+const findCall = id => callsBy().find(c => c.id === id || c._id === id) || null;
+function latestCallFor(ticker){
+  let best = null;
+  for (const c of callsBy()) if (c.ticker === ticker && (!best || c.created > best.created)) best = c;
+  return best;
+}
+const isLong = c => c.direction !== "short";
+function goodMove(c, mv){ return isLong(c) ? mv > 0 : mv < 0; }
+function geometry(c){
+  const long = isLong(c), e = c.entry, t = c.target_low, s = c.stop;
+  const tgtPct = isNum(e) && isNum(t) && e ? (t - e) / e * 100 * (long ? 1 : -1) : null;
+  const stopPct = isNum(e) && isNum(s) && e ? Math.abs(e - s) / e * 100 : null;
+  const rr = isNum(e) && isNum(t) && isNum(s) && e !== s ? Math.abs(t - e) / Math.abs(e - s) : null;
+  const pos = isNum(c.position_pct) ? c.position_pct : (stopPct ? Math.round(2 / stopPct * 1000) / 10 : null);
+  return {tgtPct, stopPct, rr, pos};
+}
+function weekdays(a, b){
+  const out = []; let t = Date.parse(a + "T00:00:00Z"); const e = Date.parse(b + "T00:00:00Z"); let guard = 0;
+  while (t <= e && guard++ < 500){ const d = new Date(t), w = d.getUTCDay(); if (w !== 0 && w !== 6) out.push(d.toISOString().slice(0, 10)); t += 864e5; }
+  return out;
+}
+function niceStep(range, count){
+  const raw = range / count || 1, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+
+/* ── tiny markdown, for postmortems and (from stage 3) full reports. Escapes first. ── */
+function mdInline(s){
+  let t = esc(s);
+  t = t.replace(/`([^`]+)`/g, (m, a) => `<code>${a}</code>`);
+  t = t.replace(/\*\*([^*]+?)\*\*/g, "<b>$1</b>");
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (m, a, u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${a}</a>`);
+  return t;
+}
+function md(src){
+  const L = String(src || "").replace(/\r/g, "").split("\n");
+  let h = "", i = 0, para = [], list = null;
+  const flushP = () => { if (para.length){ h += `<p>${mdInline(para.join(" "))}</p>`; para = []; } };
+  const flushL = () => { if (list){ h += `<${list.t}>${list.items.map(x => `<li>${mdInline(x)}</li>`).join("")}</${list.t}>`; list = null; } };
+  const row = s => s.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(x => x.trim());
+  while (i < L.length){
+    const ln = L[i]; let m;
+    if (!ln.trim()){ flushP(); flushL(); i++; continue; }
+    if (/^\s*```/.test(ln)){
+      flushP(); flushL(); const buf = []; i++;
+      while (i < L.length && !/^\s*```/.test(L[i])) buf.push(L[i++]);
+      i++; h += `<pre>${esc(buf.join("\n"))}</pre>`; continue;
+    }
+    if ((m = ln.match(/^(#{1,6})\s+(.*)$/))){ flushP(); flushL(); const lv = Math.min(m[1].length, 4) + 2; h += `<h${lv} class="mh">${mdInline(m[2])}</h${lv}>`; i++; continue; }
+    if (/^\s*\|/.test(ln) && i + 1 < L.length && /^\s*\|?\s*:?-{2,}/.test(L[i + 1])){
+      flushP(); flushL(); const head = row(ln); i += 2; const body = [];
+      while (i < L.length && /^\s*\|/.test(L[i])) body.push(row(L[i++]));
+      h += `<div class="tbl"><table><thead><tr>${head.map(x => `<th>${mdInline(x)}</th>`).join("")}</tr></thead><tbody>${body.map(r => `<tr>${r.map(x => `<td>${mdInline(x)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      continue;
+    }
+    if ((m = ln.match(/^\s*([-*]|\d+[.)])\s+(.*)$/))){
+      flushP(); const t = /\d/.test(m[1]) ? "ol" : "ul";
+      if (!list || list.t !== t){ flushL(); list = {t, items: []}; }
+      list.items.push(m[2]); i++; continue;
+    }
+    if (list && /^\s{2,}\S/.test(ln)){ list.items[list.items.length - 1] += " " + ln.trim(); i++; continue; }
+    flushL(); para.push(ln.trim()); i++;
+  }
+  flushP(); flushL(); return h;
+}
+
+/* ── charts ── */
+/* Daily OHLC from the entry bar to the deadline, against entry, target and stop. The
+   x axis runs on weekdays all the way to the deadline, so the empty stretch on the
+   right is the time the call still has. Time runs left to right, as on any chart. */
+function priceChart(c){
+  const p = c.path;
+  if (!p || !Array.isArray(p.d) || !p.d.length) return `<p class="empty">${esc(NOTE[c.note] || "אין עדיין נרות למסלול הזה.")}</p>`;
+  const last = p.d[p.d.length - 1];
+  const end = c.deadline && c.deadline > last ? c.deadline : last;
+  const slots = weekdays(p.d[0], end);
+  const idx = new Map(slots.map((d, i) => [d, i]));
+  const NS = Math.max(slots.length, 1);
+  const W = 760, H = 320, M = {t:22, r:108, b:30, l:58};
+  const iw = W - M.l - M.r, ih = H - M.t - M.b, bw = iw / NS;
+  const X = i => M.l + (i + .5) * bw;
+  const ez = c.entry_condition && isNum(c.entry_condition.low) && isNum(c.entry_condition.high) ? c.entry_condition : null;
+  const vals = [...p.h, ...p.l, c.entry, c.target_low, c.target_high, c.stop].filter(isNum);
+  if (ez) vals.push(ez.low, ez.high);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = (hi - lo) * .07 || 1; lo -= pad; hi += pad;
+  const Y = v => M.t + (hi - v) / (hi - lo) * ih;
+  const step = niceStep(hi - lo, 5), dec = step >= 1 ? 0 : step >= .1 ? 1 : 2;
+  let g = "";
+  for (let t = Math.ceil(lo / step) * step; t <= hi + 1e-9; t += step){
+    const y = Y(t).toFixed(1);
+    g += `<line class="gl" x1="${M.l}" x2="${W - M.r}" y1="${y}" y2="${y}"/><text class="ax" x="${M.l - 8}" y="${(+y + 3.5).toFixed(1)}" text-anchor="end">${t.toFixed(dec)}</text>`;
+  }
+  const k = Math.max(1, Math.ceil(NS / 7));
+  for (let i = 0; i < NS; i += k) g += `<text class="ax" x="${X(i).toFixed(1)}" y="${H - M.b + 16}" text-anchor="middle">${dm(slots[i])}</text>`;
+  // the part of the window that has not traded yet
+  const lastI = idx.has(last) ? idx.get(last) : NS - 1;
+  let fut = "";
+  if (lastI < NS - 1){
+    const fx = M.l + (lastI + 1) * bw, fw = W - M.r - fx;
+    fut = `<rect class="fut" x="${fx.toFixed(1)}" y="${M.t}" width="${fw.toFixed(1)}" height="${ih}"/>`;
+    if (fw > 70) fut += `<text class="ax lh" x="${(fx + fw / 2).toFixed(1)}" y="${M.t + ih - 8}" text-anchor="middle">עוד לא נסחר</text>`;
+  }
+  let bands = "";
+  if (isNum(c.target_high) && isNum(c.target_low) && c.target_high !== c.target_low){
+    const a = Y(Math.max(c.target_low, c.target_high)), b = Y(Math.min(c.target_low, c.target_high));
+    bands += `<rect class="b-tgt" x="${M.l}" y="${a.toFixed(1)}" width="${iw}" height="${(b - a).toFixed(1)}"/>`;
+  }
+  if (ez){
+    const a = Y(Math.max(ez.low, ez.high)), b = Y(Math.min(ez.low, ez.high));
+    bands += `<rect class="b-ez" x="${M.l}" y="${a.toFixed(1)}" width="${iw}" height="${Math.max(b - a, 1).toFixed(1)}"/>`;
+  }
+  const labs = [];
+  let lines = "";
+  const hline = (v, cls, lab, txt) => {
+    if (!isNum(v)) return;
+    const y = Y(v).toFixed(1);
+    lines += `<line class="${cls}" x1="${M.l}" x2="${W - M.r}" y1="${y}" y2="${y}"/>`;
+    labs.push({y: +y, v, lab, txt});
+  };
+  if (ez){ lines += `<line class="l-ez" x1="${M.l}" x2="${W - M.r}" y1="${Y(ez.low).toFixed(1)}" y2="${Y(ez.low).toFixed(1)}"/><line class="l-ez" x1="${M.l}" x2="${W - M.r}" y1="${Y(ez.high).toFixed(1)}" y2="${Y(ez.high).toFixed(1)}"/>`; labs.push({y: Y((ez.low + ez.high) / 2), v: null, lab: "lab-ez", txt: `אזור ${n2(ez.low)}–${n2(ez.high)}`}); }
+  hline(c.entry, "l-entry", "lab-entry", "כניסה");
+  hline(c.target_low, "l-tgt", "lab-tgt", "יעד");
+  if (isNum(c.target_high) && c.target_high !== c.target_low) hline(c.target_high, "l-tgt", "lab-tgt", "יעד עליון");
+  hline(c.stop, "l-stop", "lab-stop", "סטופ");
+  labs.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < labs.length; i++) if (labs[i].y - labs[i - 1].y < 14) labs[i].y = labs[i - 1].y + 14;
+  const over = labs.length ? labs[labs.length - 1].y - (H - M.b) : 0;
+  if (over > 0) labs.forEach(l => l.y -= over);
+  const labTxt = labs.map(l => `<text class="${l.lab}" x="${W - M.r + 8}" y="${(l.y + 3.5).toFixed(1)}">${l.v != null ? `<tspan font-weight="600">${n2(l.v)}</tspan><tspan class="lh" dx="5">${esc(l.txt)}</tspan>` : `<tspan class="lh">${esc(l.txt)}</tspan>`}</text>`).join("");
+  // deadline and binary event
+  let vls = "";
+  if (idx.has(end) || end > last){
+    const di = idx.has(end) ? idx.get(end) : NS - 1, dx = M.l + (di + 1) * bw;
+    vls += `<line class="vl" x1="${dx.toFixed(1)}" x2="${dx.toFixed(1)}" y1="${M.t}" y2="${M.t + ih}"/><text class="ax" x="${dx.toFixed(1)}" y="${M.t - 8}" text-anchor="end"><tspan class="lh">דדליין</tspan> ${dm(c.deadline)}</text>`;
+  }
+  const bd = c.binary_date;
+  if (bd && bd >= slots[0]){
+    const bi = idx.has(bd) ? idx.get(bd) : (bd > end ? null : slots.findIndex(s => s > bd));
+    if (bi != null && bi >= 0){
+      const bx = M.l + bi * bw;
+      vls += `<line class="vl-ev" x1="${bx.toFixed(1)}" x2="${bx.toFixed(1)}" y1="${M.t}" y2="${M.t + ih}"/><text class="lab-ev" x="${(bx - 4).toFixed(1)}" y="${M.t + 12}" text-anchor="end"><tspan class="lh">אירוע</tspan> ${dm(bd)}</text>`;
+    }
+  }
+  let bars = "", hits = "";
+  const tw = Math.min(bw * .32, 7);
+  for (let i = 0; i < p.d.length; i++){
+    const si = idx.get(p.d[i]); if (si == null) continue;
+    const x = X(si), o = p.o[i], h = p.h[i], l = p.l[i], cl = p.c[i];
+    if (![o, h, l, cl].every(isNum)) continue;
+    const up = cl >= o, xs = x.toFixed(1);
+    bars += `<g class="${up ? "bu" : "bd"}"><line x1="${xs}" x2="${xs}" y1="${Y(h).toFixed(1)}" y2="${Y(l).toFixed(1)}"/><line x1="${(x - tw).toFixed(1)}" x2="${xs}" y1="${Y(o).toFixed(1)}" y2="${Y(o).toFixed(1)}"/><line x1="${xs}" x2="${(x + tw).toFixed(1)}" y1="${Y(cl).toFixed(1)}" y2="${Y(cl).toFixed(1)}"/></g>`;
+    hits += `<rect class="hit" x="${(x - bw / 2).toFixed(1)}" y="${M.t}" width="${bw.toFixed(1)}" height="${ih}"><title>${wday(p.d[i])} ${dmy(p.d[i])} · פתיחה ${n2(o)} · שיא ${n2(h)} · שפל ${n2(l)} · סגירה ${n2(cl)}</title></rect>`;
+  }
+  let marks = "";
+  if (c.touch_date && idx.has(c.touch_date) && isNum(c.target_low)){
+    const x = X(idx.get(c.touch_date)), y = Y(c.target_low);
+    marks += `<circle class="m-tgt" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5"><title>נגעה ביעד ב-${dmy(c.touch_date)}</title></circle>`;
+  }
+  if (c.stop_date && idx.has(c.stop_date) && isNum(c.stop)){
+    const x = X(idx.get(c.stop_date)), y = Y(c.stop);
+    marks += `<path class="m-stop" d="M${x.toFixed(1)} ${(y - 6).toFixed(1)} L${(x + 6).toFixed(1)} ${(y + 5).toFixed(1)} L${(x - 6).toFixed(1)} ${(y + 5).toFixed(1)} Z"><title>נעצרה בסטופ ב-${dmy(c.stop_date)}</title></path>`;
+  }
+  const aria = `מסלול המחיר של ${c.ticker} מ-${dmy(p.d[0])} עד ${dmy(last)}: כניסה ${n2(c.entry)}, יעד ${n2(c.target_low)}, סטופ ${n2(c.stop)}, סגירה אחרונה ${n2(p.c[p.c.length - 1])}`;
+  return `<div class="tbl"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">${fut}${g}${bands}${lines}${vls}${bars}${marks}${hits}${labTxt}</svg></div>`;
+}
+
+/* Home-row sparkline: closes on the same weekday axis, with target and stop. */
+function spark(c){
+  const p = c.path;
+  if (!p || !Array.isArray(p.c) || !p.c.length) return `<span class="spark-empty">אין נרות עדיין</span>`;
+  const last = p.d[p.d.length - 1], end = c.deadline && c.deadline > last ? c.deadline : last;
+  const slots = weekdays(p.d[0], end), idx = new Map(slots.map((d, i) => [d, i]));
+  const W = 150, H = 44, P = 4, NS = Math.max(slots.length - 1, 1);
+  const vals = [...p.c, c.target_low, c.stop, c.entry].filter(isNum);
+  const lo = Math.min(...vals), hi = Math.max(...vals), sp = hi - lo || 1;
+  const X = i => P + i / NS * (W - 2 * P), Y = v => P + (hi - v) / sp * (H - 2 * P);
+  const pts = []; p.d.forEach((d, i) => { if (idx.has(d) && isNum(p.c[i])) pts.push([X(idx.get(d)), Y(p.c[i])]); });
+  const line = pts.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ");
+  const endp = pts[pts.length - 1] || [P, H / 2];
+  const hl = (v, col) => isNum(v) ? `<line x1="${P}" x2="${W - P}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="${col}" stroke-width="1" stroke-dasharray="2 3"/>` : "";
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="מחיר מול יעד וסטופ">
+    <rect x="0" y="0" width="${W}" height="${H}" rx="3" fill="var(--sunk)"/>
+    ${hl(c.target_low, "var(--ok)")}${hl(c.stop, "var(--bad)")}${hl(c.entry, "var(--muted)")}
+    ${pts.length > 1 ? `<polyline points="${line}" fill="none" stroke="var(--fg)" stroke-width="1.5" stroke-linejoin="round"/>` : ""}
+    <circle cx="${endp[0].toFixed(1)}" cy="${endp[1].toFixed(1)}" r="2.6" fill="var(--accent)"/>
+  </svg>`;
+}
+
+/* ── shared pieces ── */
+const pane = (title, body, aux = "", cls = "") => `<section class="pane ${cls}"><div class="ph"><h2>${title}</h2>${aux ? `<span class="aux">${aux}</span>` : ""}</div><div class="pb${cls.includes("flush") ? " flush" : ""}">${body}</div></section>`;
+const cell = (k, v, s = "", mod = "") => `<div class="cell"><span class="k">${k}</span><span class="v${mod ? " " + mod : ""}">${v}</span>${s ? `<span class="s">${s}</span>` : ""}</div>`;
+const loading = what => `<p class="empty">טוען ${what} מהריפו…</p>`;
+function feedItem(e, opts = {}){
+  const [lbl, tn] = FEED[e.kind] || [e.label || e.kind, e.tone || "move"];
+  const tone = TONE[e.tone || tn] || "warn";
+  const un = unread(e);
+  const href = e.call_id ? `call-${e.call_id}` : "";
+  return `<div class="ev tn-${tone}${un ? "" : " read"}"${href ? ` data-href="${esc(href)}"` : ""} data-ev="${esc(e._id)}">
+    <span class="rail" aria-hidden="true"></span>
+    <div>
+      <div class="top">${href ? `<a class="tk" href="#${esc(href)}" data-ev="${esc(e._id)}">${esc(e.ticker)}</a>` : `<span class="tk">${esc(e.ticker)}</span>`}
+        <span class="lb">${esc(lbl)}</span>${un ? `<span class="dot" title="לא נקרא" aria-label="לא נקרא"></span>` : ""}
+        ${opts.date ? `<span class="dt">${dm(e.date)}</span>` : ""}</div>
+      <p class="${opts.clip ? "clip" : ""}">${esc(e.text)}${e.source ? " " + ext(e.source, "מקור") : ""}</p>
+    </div>
+  </div>`;
+}
+const sortedEvents = () => (S.events || []).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : String(a.ticker).localeCompare(String(b.ticker)));
+
+/* ── home ── */
+function vHome(){
+  const st = S.stats && S.stats.summary;
+  const T = today();
+  let h = "";
+  const pend = (S.queue || []).filter(q => q.status === "pending" || q.status === "running");
+  const m = S.meta;
+  h += `<div class="strip c6">
+    ${engineCell()}
+    ${cell("תור", N(pend.length), pend.length ? (pend.some(q => q.status === "running") ? "אחת אצל המנוע" : "המנוע מתעורר עליהן") : "אין בקשות ממתינות")}
+    ${cell("נתונים עודכנו", m ? N(stamp(m.synced_at)) : "–", m ? ago(m.synced_at) : "", "sm")}
+    ${(() => { const o = S.calls ? ocStats(S.calls.filter(c => c.bucket === "closed")) : null;
+      return cell("ציון קליבר", o && o.dec ? N(pctTxt(o.score)) : "–", o && o.dec ? `צדק ב-${o.right} מתוך ${o.dec} שנסגרו` : ""); })()}
+    ${cell("ציון ברייר", st && st.brier && isNum(st.brier.score) ? N(st.brier.score.toFixed(3)) : "–", st && st.brier ? `על ${st.brier.n} קריאות · 0 מושלם` : "")}
+    ${(() => { const o = S.calls ? ocStats(S.calls.filter(c => c.bucket === "closed")) : null;
+      return cell("הימנעות מוצלחת", o && o.asideN ? N(o.n.avoided + "/" + o.asideN) : "–", "כשהמליץ לא להיכנס"); })()}
+  </div>`;
+  let main;
+  if (!S.calls) main = pane("קריאות פתוחות", loading("את הקריאות"));
+  else {
+    const open = S.calls.filter(c => c.bucket === "open").sort((a, b) => String(a.deadline).localeCompare(String(b.deadline)));
+    main = pane("קריאות פתוחות", open.length ? open.map(c => ocRow(c, T)).join("") : `<p class="empty" style="padding:12px 14px">אין קריאות פתוחות.</p>`, `${open.length} · לפי דדליין`, "flush");
+  }
+  let side = queuePane();
+  if (!S.events) side += pane("עדכונים אחרונים", loading("את העדכונים"));
+  else {
+    const ev = sortedEvents().slice(0, 5);
+    side += pane("עדכונים אחרונים", (ev.length ? ev.map(e => feedItem(e, {date: true, clip: true})).join("") : `<p class="empty" style="padding:12px 14px">אין עדכונים עדיין.</p>`) + `<div style="padding:10px 14px;border-top:1px solid var(--line)"><a class="more" href="#feed">לכל העדכונים ←</a></div>`, "", "flush");
+  }
+  h += `<div class="cols"><div class="col">${main}</div><div class="col">${side}</div></div>`;
+  return h;
+}
+/* ── engine and queue (stage 3) ── */
+function jerHM(d = new Date()){
+  try {
+    const p = new Intl.DateTimeFormat("en-GB", {timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false}).formatToParts(d);
+    const h = +p.find(x => x.type === "hour").value, m = +p.find(x => x.type === "minute").value;
+    return {h: h === 24 ? 0 : h, m};
+  } catch (e) { return {h: d.getHours(), m: d.getMinutes()}; }
+}
+/* Since 7.11 there is no courier and no hourly run: a request is a GitHub issue, and opening it wakes the
+   cloud engine (an issues.opened trigger). The engine also runs once a day at 07:00 for the audit. It writes
+   its results straight into the repo, so a report shows up here a few minutes after it is done. */
+const ETA = "דוח מלא מוכן בדרך כלל תוך 10–20 דקות";
+function nextAudit(){ const {h} = jerHM(); return h < 7 ? "07:00" : "07:00 מחר"; }
+const hm = iso => { const t = new Date(iso); return isNaN(t) ? "" : t.toLocaleTimeString("he-IL", {timeZone: TZ, hour: "2-digit", minute: "2-digit"}); };
+const minsSince = iso => { const t = Date.parse(iso); return isFinite(t) ? Math.round((Date.now() - t) / 6e4) : null; };
+function isoLocal(d = new Date()){
+  const p = n => String(n).padStart(2, "0"), off = -d.getTimezoneOffset(), a = Math.abs(off);
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}${off >= 0 ? "+" : "-"}${p(Math.floor(a / 60))}:${p(a % 60)}`;
+}
+function engineCell(){
+  const en = S.engine;
+  if (en === undefined) return cell("מנוע", "–", "", "txt");
+  if (!en) return cell("מנוע", `<span class="t-muted">עוד לא רץ</span>`, `מתעורר על כל בקשה, ובדיקה יומית ב-${nextAudit()}`, "txt");
+  // the run lock (relay/state/worker-lock.json): older than 120 minutes, it belongs to a run that died
+  const lockAge = en.running_since ? minsSince(en.running_since) : null;
+  if (en.running_since && lockAge != null && lockAge < 120) return cell("מנוע", `<span class="t-acc">עובד עכשיו</span>`, en.current ? `על: ${esc(en.current)}` : `התחיל ${ago(en.running_since)}`, "txt");
+  const mins = minsSince(en.last_run), {h, m} = jerHM();
+  const since = iso => dayDiff(String(iso).slice(0, 10), today()) === 0 ? hm(iso) : stamp(iso);
+  // the daily audit runs at 07:00: after 08:00, a last run from before today's 07:00 means it was missed
+  if (en.last_run && mins > (h * 60 + m - 420) && h * 60 + m >= 480) return cell("מנוע", `<span class="t-warn">לא רץ מאז ${since(en.last_run)}</span>`, en.running_since ? "הריצה האחרונה בענן נקטעה." : "הבדיקה היומית של 07:00 לא רצה. כדאי לבדוק את הרוטינה ב-claude.ai/code.", "txt");
+  if (en.running_since) return cell("מנוע", `<span class="t-warn">הריצה האחרונה נקטעה</span>`, `התחילה ${ago(en.running_since)}. הריצה הבאה תשחרר אותה.`, "txt");
+  if (en.ok === false) return cell("מנוע", `<span class="t-bad">הריצה האחרונה נכשלה</span>`, esc(en.error || ""), "txt");
+  return cell("מנוע", `<span class="t-ok">פעיל</span>`, `${en.last_run ? `רץ ${ago(en.last_run)} · ` : ""}מתעורר על כל בקשה`, "txt");
+}
+function queuePane(){
+  const now = Date.now();
+  const items = (S.queue || []).filter(q => {
+    const t = Date.parse(q.created_at); if (!isFinite(t)) return false;
+    const age = (now - t) / 864e5;
+    return q.status === "pending" || q.status === "running" || age < (q.status === "cancelled" ? 1 : 7);
+  }).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, 8);
+  const pend = (S.queue || []).filter(q => q.status === "pending").length;
+  if (!items.length) return pane("בקשות", `<p class="empty" style="padding:12px 14px">עוד לא נשלחה בקשה. הקלד טיקר בתיבה למעלה.</p>`, "", "flush");
+  const body = items.map(q => {
+    const [lbl, tone, g] = QS[q.status] || [q.status, "muted", "·"];
+    const what = q.kind === "ticker" ? `<span class="tk">${esc(q.ticker || q.text)}</span>` : esc(q.text);
+    let x = "";
+    if (q.status === "done"){
+      if (q.summary) x += esc(q.summary);
+      if (q.call_id) x += ` <a href="#call-${esc(q.call_id)}">לקריאה ←</a>`;
+      if (q.result_md) x += `<details class="pm"><summary>התשובה</summary><div class="md">${md(q.result_md)}</div></details>`;
+    } else if (q.status === "failed" && q.error) x = `<span class="t-bad">${esc(q.error)}</span>`;
+    else if (q.status === "running") x = `המנוע התחיל לעבוד על זה ${esc(ago(q.started_at || q.created_at))}. ${ETA}.`;
+    else if (q.status === "pending") x = `ממתין שהמנוע יתעורר. ${ETA}.`;
+    const when = q.status === "done" || q.status === "failed" ? (q.finished_at ? `הסתיים ${ago(q.finished_at)}` : "") : `נשלח ${ago(q.created_at)}`;
+    return `<div class="qi"><span class="t-${tone}" aria-hidden="true">${g}</span>
+      <span class="qt">${what}</span>
+      ${q.status === "pending" && q.issue ? `<button type="button" class="btn sm" data-act="cancel" data-q="${esc(q._id)}">בטל</button>` : `<span></span>`}
+      <span class="qm"><span class="t-${tone}">${lbl}</span>${when ? `<span>${esc(when)}</span>` : ""}${q.kind === "request" ? "<span>בקשה חופשית</span>" : q.kind === "question" ? `<span>שאלה על ${esc(q.ticker || "קריאה")}</span>` : ""}${q.issue ? ext(q.url, "#" + q.issue) : ""}</span>
+      ${x ? `<div class="qx">${x}</div>` : ""}</div>`;
+  }).join("");
+  return pane("בקשות", body, pend ? `${pend} ממתינות` : "", "flush");
+}
+let askBusy = false;
+function askMsg(text, tone = ""){ const el = $("askMsg"); el.textContent = text; if (tone) el.dataset.tone = tone; else delete el.dataset.tone; }
+function askReady(){
+  const ok = S.dbState === "ok" && S.canWrite !== false;
+  $("askInput").disabled = !ok; $("askBtn").disabled = !ok || askBusy;
+  ["jAdd", "pfInput", "pfBtn"].forEach(id => { $(id).disabled = !ok; });
+  if (S.dbState === "none") askMsg("אין חיבור לריפו, אז אי אפשר לשלוח. התחבר למעלה.", "bad");
+  else if (S.canWrite === false) askMsg("לטוקן הזה אין הרשאת כתיבה לריפו (Contents ו-Issues).", "warn");
+}
+const DEFAULT_HINT = () => `המנוע בענן מתעורר על כל בקשה, גם כשהמחשב כבוי. ${ETA}, ותגיע התראה לנייד כשהוא מוכן.`;
+async function submitAsk(e){
+  e.preventDefault();
+  if (askBusy) return;
+  const raw = $("askInput").value.trim();
+  if (!raw){ askMsg("כתוב טיקר, למשל NVDA, או בקשה במשפט.", "warn"); return; }
+  if (!S.db){ askMsg("אין חיבור לריפו.", "bad"); return; }
+  const t = raw.replace(/^\$/, "");
+  const isTicker = /^[A-Za-z]{1,5}([.\-][A-Za-z]{1,2})?$/.test(t);
+  const ticker = isTicker ? t.toUpperCase() : null;
+  const dup = (S.queue || []).find(q => (q.status === "pending" || q.status === "running") && (ticker ? q.ticker === ticker : q.text === raw));
+  if (dup){ askMsg(`${ticker || "הבקשה הזו"} כבר בתור.`, "warn"); return; }
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  const id = `q-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${Math.random().toString(36).slice(2, 6)}`;
+  const doc = {kind: isTicker ? "ticker" : "request", text: isTicker ? ticker : raw, ticker, status: "pending", created_at: isoLocal(d), attempts: 0};
+  askBusy = true; askReady();
+  try {
+    await S.db.collection("queue").doc(id).set(doc);
+    $("askInput").value = "";
+    askMsg(`נשלח: ${isTicker ? ticker : "הבקשה"}. המנוע מתעורר עליה עכשיו. ${ETA}, ותגיע התראה לנייד.`, "ok");
+  } catch (err) {
+    const code = err && err.code;
+    if (code === "forbidden"){ S.canWrite = false; askMsg("השליחה נדחתה: לטוקן אין הרשאת Issues לכתיבה.", "bad"); }
+    else askMsg(`השליחה נכשלה (${code || "שגיאה"}). נסה שוב בעוד רגע.`, "bad");
+  } finally { askBusy = false; askReady(); }
+}
+async function cancelAsk(id){
+  const q = (S.queue || []).find(x => x._id === id);
+  if (!q || q.status !== "pending" || !S.db) return;
+  try { await S.db.doc("queue/" + id).update({status: "cancelled", finished_at: isoLocal()}); askMsg("הבקשה בוטלה.", ""); }
+  catch (err) { askMsg(`הביטול נכשל (${(err && err.code) || "שגיאה"}).`, "bad"); }
+}
+
+function ocRow(c, T){
+  const a = c.action || {do: "לא להיכנס", tone: "hold", why: ""};
+  const d = isNum(dayDiff(T, c.deadline)) ? dayDiff(T, c.deadline) : null;
+  const mv = c.move_pct, geo = geometry(c);
+  const mvCls = isNum(mv) && mv !== 0 ? (goodMove(c, mv) ? "t-ok" : "t-bad") : "t-muted";
+  return `<a class="oc" href="#call-${esc(c.id)}">
+    <div class="oc-id"><span class="tkr">${esc(c.ticker)}</span><span class="co">${esc(c.company || "")}</span>
+      <span class="dl">${daysTxt(d)} · דדליין ${N(dm(c.deadline))}</span></div>
+    <div class="oc-act"><b class="${a.tone === "good" ? "t-ok" : "t-hold"}">${esc(a.do)}</b>${a.why ? `<span>${esc(a.why)}</span>` : ""}
+      <span class="chips"><span class="chip t-${gTone(c.gate)}">שערים: ${esc(gLbl(c.gate))}</span>${tradesFor(c.id).some(isOpenT) ? `<span class="chip t-info">בעסקה</span>` : ""}${c._live ? `<span class="chip t-acc" title="הסנכרון המלא לא רץ מאז. המחיר עודכן בענן.">מהענן</span>` : ""}</span></div>
+    <div class="oc-sp">${spark(c)}</div>
+    <div class="oc-px"><span class="px num">${n2(c.current)}</span>
+      <span class="mv ${mvCls}">${c.note ? noteShort(c.note) : `${N(pct(mv))} מאז הקריאה`}</span>
+      <span class="lv">יעד ${N(n2(c.target_low))} · סטופ ${N(n2(c.stop))}</span>
+      ${isNum(geo.pos) ? `<span class="lv">פוזיציה ${N(num(geo.pos, 1) + "%")} מהתיק</span>` : ""}</div>
+  </a>`;
+}
+
+/* ── call ── */
+function vCall(){
+  const back = `<a class="back" href="#home">→ חזרה</a>`;
+  if (!S.calls) return back + loading("את הקריאה");
+  const c = findCall(S.callId);
+  if (!c) return back + `<p class="empty">הקריאה <span class="mono">${esc(S.callId)}</span> לא נמצאה ביומן.</p>`;
+  const rep = S.report.id === c.id ? S.report.doc : undefined;
+  const out = S.outcome.id === c.id ? S.outcome.doc : undefined;
+  const rec = (rep && rep.record) || {};
+  const T = today(), closed = c.bucket === "closed";
+  const a = c.action || {do: "לא להיכנס", tone: "hold", why: ""};
+  const geo = geometry(c);
+  const mv = c.move_pct;
+  let h = back;
+  h += `<div class="chead"><span class="tkr">${esc(c.ticker)}</span><span class="co">${esc(c.company || "")}</span></div>
+    <div class="cmeta">${closed ? ocChip(outcomeOf(c)) : ""}${vchip(c.verdict)}<span class="chip plain">${esc(STANCE(c.stance))}</span><span class="chip plain">${DIR(c.direction)}</span>
+      ${S.pending.includes(c.id) ? `<span class="chip t-acc" title="נכתבה בענן ועוד לא נקלטה ביומן.">ממתינה לקליטה ביומן</span>` : ""}
+      ${c._live ? `<span class="chip t-acc" title="הסנכרון המלא לא רץ מאז. המחיר והמסלול עודכנו בענן.">מעודכן מהענן</span>` : ""}
+      <span>נקבעה ${N(dmy(c.created))}</span><span>דדליין ${N(dmy(c.deadline))}${!closed ? ` · ${daysTxt(dayDiff(T, c.deadline))}` : ""}</span>
+      <span class="id">${esc(c.id)}</span></div>`;
+  const mvCls = isNum(mv) && mv !== 0 ? (goodMove(c, mv) ? "t-ok" : "t-bad") : "t-muted";
+  h += `<section class="pane"><div class="band">
+      <div class="act"><span class="lbl">${closed ? "ההמלצה הייתה" : "ההמלצה"}</span><b class="${a.tone === "good" ? "t-ok" : "t-hold"}">${esc(a.do)}</b>
+        ${a.why ? `<span class="why">למה: ${esc(a.why)}</span>` : ""}</div>
+      <div class="pxb"><span class="sub">${closed ? "סגירה אחרונה בחלון" : "סגירה אחרונה"}${c.evaluated_through ? ` · ${N(dm(c.evaluated_through))}` : ""}</span>
+        <span class="px">${n2(c.current)}</span>
+        <span class="sub ${mvCls}">${c.note ? noteShort(c.note) : `${N(pct(mv))} מאז הקריאה`}</span></div>
+      ${S.db ? `<div class="band-cta">${!closed ? `<button type="button" class="btn primary" data-jact="enter" data-c="${esc(c.id)}"${S.canWrite === false ? " disabled" : ""}>נכנסתי לעסקה</button>` : ""}
+        <button type="button" class="btn${closed ? " primary" : ""}" data-qa="open" data-c="${esc(c.id)}">שאל את קליבר${qaRows(c.id).length ? ` <span class="num">(${qaRows(c.id).length})</span>` : ""}</button>
+        <span class="note">${!closed ? `${isNum(geo.pos) ? `גודל פוזיציה לפי קליבר: ${N(num(geo.pos, 1) + "%")} מהתיק. ` : ""}"נכנסתי לעסקה" יוצר שורה ביומן המסחר, מקושרת לקריאה הזו.` : "שאלה על הקריאה: המנוע בענן מתעורר עליה ועונה כאן, בדרך כלל תוך 5–15 דקות."}</span></div>` : ""}
+    </div></section>`;
+  if (c._live) h += `<p class="note">המחיר, המסלול והפסק עודכנו בענן${typeof c._live === "string" ? ` ב-${esc(stamp(c._live))}` : ""}, כי הסנכרון המלא לא רץ מאז. סגירה, תחקיר ובדיקת הנחות יגיעו בסנכרון הבא.</p>`;
+  if (rep === undefined || (closed && out === undefined)) h += `<p class="note">טוען את הרשומה והתחקיר…</p>`;
+
+  /* main column */
+  let main = pane("מסלול המחיר", priceChart(c) + `<div class="legend">
+      <span><span class="sw" style="color:var(--ok)"></span>יעד</span>
+      <span><span class="sw" style="color:var(--bad)"></span>סטופ</span>
+      <span><span class="sw dash" style="color:var(--fg-2)"></span>כניסה</span>
+      ${c.entry_condition ? `<span><span class="sw box" style="background:var(--info-soft);outline:1px dashed var(--info)"></span>אזור כניסה</span>` : ""}
+      ${c.binary_date ? `<span><span class="sw dash" style="color:var(--accent)"></span>אירוע בינארי</span>` : ""}
+      <span>נר יומי: קו אנכי שיא–שפל, פתיחה משמאל, סגירה מימין</span></div>`,
+    c.path && c.path.d ? `${c.path.d.length} ימי מסחר` : "");
+  if (rep && rep.markdown) main += pane("הדוח המלא", `<details class="pm"${closed ? "" : " open"}><summary>הדוח על ${esc(c.ticker)} מ-${dmy(c.created)}</summary><div class="md">${md(rep.markdown)}</div></details>`, "נכתב על ידי המנוע");
+  if (out) main += postmortemPane(out, c);
+  else if (closed && out === null) main += pane("תחקיר", `<p class="empty">הפסק נקבע לפי המחירים. התחקיר יתווסף בהרצה הבאה.</p>`);
+  main += thesisPane(c, rec, out, T);
+  main += researchPane(c, rec);
+
+  /* side column */
+  let side = myTradesPane(c) + constructionPane(c, rec, geo);
+  side += gatesPane(c, rec);
+  const cats = rec.catalysts || [];
+  if (cats.length) side += pane("לוח אירועים", `<ul class="list cat">${cats.slice().sort((x, y) => String(x.date).localeCompare(String(y.date))).map(k => {
+      const past = k.date && k.date < T, bin = k.date && k.date === c.binary_date;
+      return `<li class="${past ? "past" : ""}${bin ? " bin" : ""}"><span class="when">${N(dmy(k.date))}</span><span>${esc(k.event)}</span></li>`;
+    }).join("")}</ul>`, c.binary_date ? `אירוע בינארי ${dm(c.binary_date)}` : "");
+  const risks = rec.risks || [];
+  if (risks.length) side += pane("סיכונים", `<ul class="list">${risks.map(r => `<li><span class="mk t-warn">!</span><span>${esc(r)}</span></li>`).join("")}</ul>`);
+  const rz = c.realization || rec.realization;
+  if (rz && typeof rz === "object") side += pane("מימוש", `<dl class="kv">${Object.entries(rz).map(([k, v]) => `<div class="kvr"><dt>${esc(REAL[k] || k)}</dt><dd>${esc(k === "hard_exit" ? dmy(String(v)) : v)}</dd></div>`).join("")}</dl>`);
+  if (rec.premortem) side += pane("פרה-מורטם", `<p class="prose">${esc(rec.premortem)}</p>`);
+  const srcs = (rep && rep.sources) || [];
+  if (srcs.length) side += pane("מקורות", `<ol class="src">${srcs.map(u => `<li>${ext(u)}</li>`).join("")}</ol>`, String(srcs.length));
+
+  h += `<div class="cols"><div class="col">${main}</div><div class="col">${side}</div></div>`;
+  if (rep && !rep.markdown) h += `<p class="note">הדוח המלא נכתב בצ'אט ולא נשמר מקומית. המסך מציג את הרשומה המובנית מהיומן: התזה, ההנחות, האירועים, הסיכונים, המחקר והמקורות.</p>`;
+  return h;
+}
+function constructionPane(c, rec, geo){
+  const g = c.gate || {};
+  const gac = rec.gate_at_call || c.gate_at_call || {};
+  const tgt = isNum(c.target_high) && c.target_high !== c.target_low ? `${n2(c.target_low)}–${n2(c.target_high)}` : n2(c.target_low);
+  const rows = [];
+  const row = (k, v, sub) => rows.push(`<div class="kvr"><dt>${k}</dt><dd>${v}${sub ? `<span class="sub">${sub}</span>` : ""}</dd></div>`);
+  row("כניסה", `<span class="big">${N(n2(c.entry))}</span>`, [c.entry_date ? `יום ${dmy(c.entry_date)}` : "", rec.entry_basis || c.entry_basis ? esc(rec.entry_basis || c.entry_basis) : ""].filter(Boolean).join(" · "));
+  row("יעד", `<span class="big t-ok">${N(tgt)}</span> ${isNum(geo.tgtPct) ? N(pct(geo.tgtPct)) : ""}`);
+  row("סטופ", `<span class="big t-bad">${N(n2(c.stop))}</span> ${isNum(geo.stopPct) ? N("−" + geo.stopPct.toFixed(1) + "%") : ""}`);
+  if (isNum(geo.rr)) row("יחס רווח/סיכון", N(geo.rr.toFixed(2)), geo.rr < 1 ? "מתחת ל-1.00: נפסל בשער 3" : geo.rr < 1.25 ? "יחס דק: בין 1.00 ל-1.25" : "");
+  if (isNum(geo.pos)) row("גודל פוזיציה", `<span class="big">${N(num(geo.pos, 1) + "%")}</span> מהתיק`, "הפסד בודד בסטופ = 2% מהתיק");
+  const hz = g.horizon_used && g.horizon_stated && g.horizon_used !== g.horizon_stated
+    ? `${N(g.horizon_stated + "→" + g.horizon_used)} ימים` : `${N(c.horizon_days)} ימים`;
+  row("אופק", hz, [g.horizon_used && g.horizon_used !== g.horizon_stated && g.binary_date ? `מקוצר בגלל אירוע ב-${dmy(g.binary_date)}` : "", c.deadline_note ? esc(c.deadline_note) : "", rec.note_horizon ? esc(rec.note_horizon) : ""].filter(Boolean).join(" · "));
+  if (isNum(g.base_rate)) row("base rate", N(g.base_rate + "%"), "כמה פעמים בהיסטוריה המניה עשתה את התנועה הזו בזמן הזה");
+  if (isNum(c.confidence)) row("ביטחון מוצהר", N(c.confidence + "%"), rec.confidence_basis ? esc(rec.confidence_basis) : "");
+  else if (rec.confidence_basis) row("ביטחון מוצהר", "לא באחוזים", esc(rec.confidence_basis));
+  if (isNum(gac.margin_points) || isNum(gac.margin_recent_points)) row("מרווח עמידות", `${isNum(gac.margin_points) ? N(gac.margin_points) + " מאוחד" : ""}${isNum(gac.margin_points) && isNum(gac.margin_recent_points) ? " · " : ""}${isNum(gac.margin_recent_points) ? N(gac.margin_recent_points) + " בשנה האחרונה" : ""}`, "נק׳ מעל נקודת האיזון, ביום הקריאה. הסף: 8");
+  if (g.suggested_target && isNum(g.suggested_target[0]) && g.suggested_target[0] > 0) row("יעד שההיסטוריה תומכת בו", N(n2(g.suggested_target[0]) + "–" + n2(g.suggested_target[1])), "חציון עד רבעון 75 של התנועה המקסימלית");
+  if (isNum(g.min_stop) && g.min_stop > 0) row("סטופ מינימלי", N(n2(g.min_stop)), "כניסה פחות ATR אחד");
+  const ec = c.entry_condition;
+  if (ec && isNum(ec.low)) {
+    const z = c.entry_zone;
+    row("אזור כניסה", N(n2(ec.low) + "–" + n2(ec.high)), [isNum(ec.fill_probability_pct) ? `סיכוי מילוי ${ec.fill_probability_pct}%` : "", ec.not_before ? `לא לפני ${dmy(ec.not_before)}` : "", z && z.outcome ? (ZO[z.outcome] || z.outcome) + (z.date ? ` (${dmy(z.date)})` : "") : ""].filter(Boolean).join(" · "));
+  }
+  if (isNum(c.invalidation_level) || c.invalidation) row("ביטול התזה", isNum(c.invalidation_level) ? N(n2(c.invalidation_level)) : "", c.invalidation ? esc(c.invalidation) : "");
+  if (isNum(c.mfe_pct) || isNum(c.mae_pct)) row("שיא ושפל בחלון", `${N(pct(c.mfe_pct))} / ${N(pct(c.mae_pct))}`, "התנועה הטובה והגרועה ביותר מהכניסה");
+  return pane("הבנייה", `<dl class="kv">${rows.join("")}</dl>`);
+}
+function gatesPane(c, rec){
+  const g = c.gate;
+  const gac = rec.gate_at_call || c.gate_at_call || {};
+  let body = "";
+  if (!g) body = `<p class="empty">לא חושב פסק שערים לקריאה הזו.</p>`;
+  else {
+    const failed = new Set((g.failed || []).map(f => String(f).split(".")[0].trim()));
+    const edge = new Map((g.on_edge || []).map(e => [String(e.gate), e]));
+    const sub = g.frozen ? `הוקפא ביום הקריאה${gac.computed_on ? ` (${dmy(gac.computed_on)})` : ""}` : "מחושב מחדש בסנכרון האחרון: אותה בנייה מול היסטוריית המחירים עד היום";
+    body += `<div class="gv"><b class="t-${gTone(g)}">${esc(gLbl(g))}</b><span>${sub}</span></div>`;
+    if (!g.frozen && gac.verdict) body += `<p class="note">ביום הקריאה (${dmy(gac.computed_on)}): <b class="t-${GT[gac.verdict] || "muted"}">${esc(G[gac.verdict] || gac.verdict)}</b>${(gac.failed || []).length ? `, נכשלו שערים ${gac.failed.map(f => String(f).split(".")[0]).join(", ")}` : ""}.</p>`;
+    const rows = GATES.map(([n, name, fatal, why]) => {
+      let st = "עובר", tone = "ok", det = "";
+      if (failed.has(n)){ st = "נכשל"; tone = "bad"; det = why; }
+      else if (edge.has(n)){ const e = edge.get(n); st = "על הסף"; tone = "warn"; det = `מרווח ${e.margin} מול סף ${e.threshold}, פחות מ-2 נק׳ מעליו`; }
+      else if (n === "6" && c.confidence == null){ st = "לא נבדק"; tone = "muted"; det = "לא הוצהר ביטחון באחוזים"; }
+      if (n === "5" && isNum(g.base_rate) && !det) det = `base rate ${g.base_rate}%`;
+      const mlab = g.frozen ? "מרווח" : "ביום הקריאה: מרווח";
+      if (n === "8" && isNum(gac.margin_points) && tone !== "warn") det = (det ? det + " · " : "") + `${mlab} ${gac.margin_points}`;
+      if (n === "9" && isNum(gac.margin_recent_points) && tone !== "warn") det = (det ? det + " · " : "") + `${mlab} ${gac.margin_recent_points}`;
+      return `<tr class="${tone === "bad" ? "is-fail" : ""}"><td class="gn">${n}</td><td>${esc(name)}${fatal ? `<span class="fatal">קטלני</span>` : ""}${det ? `<div class="gd">${esc(det)}</div>` : ""}</td><td class="gs"><span class="st t-${tone}">${st}</span></td></tr>`;
+    }).join("");
+    body += `<div class="tbl"><table class="gates"><tbody>${rows}</tbody></table></div>`;
+    if (g.frozen) body += `<p class="note">פסק מוקפא שומר רק את השערים שנכשלו. שער שלא נרשם ככושל מוצג כעובר.</p>`;
+  }
+  const gr = rec.gates_reported;
+  if (gr && typeof gr === "object") body += `<div class="blk"><h3>כפי שדווחו בדוח המקורי (מספור ישן)</h3><div class="chips">${Object.entries(gr).map(([k, v]) => { const [l, t] = GREP[v] || [v, "muted"]; return `<span class="chip t-${t}">${esc(k)} · ${esc(l)}</span>`; }).join("")}</div></div>`;
+  if (rec.verdict_reason) body += `<p class="prose">${esc(rec.verdict_reason)}</p>`;
+  if (rec.regime_instability) body += `<p class="note">חוסר יציבות במשטר: ${esc(rec.regime_instability)}</p>`;
+  return pane("השערים", body, "קטלני = 4, 5, 8, 9");
+}
+function thesisPane(c, rec, out, T){
+  let b = `<p class="prose">${esc(c.thesis || rec.thesis || "")}</p>`;
+  const A = c.assumptions || rec.assumptions || [];
+  const R = (out && out.assumption_review) || [];
+  const paired = R.length === A.length;
+  if (A.length){
+    b += `<div class="blk"><h3>ההנחות ומועדי הבדיקה</h3><ul class="list">${A.map((x, i) => {
+      const rv = paired ? R[i] : null;
+      let mk = "·", tone = "t-muted", st = "";
+      if (rv){ if (rv.held === true){ mk = "✔"; tone = "t-ok"; st = "התקיימה"; } else if (rv.held === false){ mk = "✘"; tone = "t-bad"; st = "לא התקיימה"; } else { mk = "?"; tone = "t-muted"; st = "לא נבחנה"; } }
+      else if (x.check_on){ if (x.check_on < T && c.bucket === "open"){ mk = "!"; tone = "t-warn"; st = "עבר מועד הבדיקה"; } else if (x.check_on >= T){ st = "ממתינה לבדיקה"; } }
+      return `<li><span class="mk ${tone}">${mk}</span><div>${esc(x.text)}
+        <div class="meta">${x.kind ? `<span class="chip plain">${esc(AKIND[x.kind] || x.kind)}</span>` : ""}${x.check_on ? `<span>בדיקה ${N(dmy(x.check_on))}</span>` : `<span>בלי מועד בדיקה</span>`}${st ? `<span class="${tone}">${st}</span>` : ""}</div>
+        ${rv && rv.note ? `<div class="meta"><span>${esc(rv.note)}</span></div>` : ""}</div></li>`;
+    }).join("")}</ul></div>`;
+  }
+  const rc = c.reassess_criteria || rec.reassess_criteria;
+  if (c.reassess_on || rec.reassess_on) b += `<p class="note">בדיקה חוזרת ב-${dmy(c.reassess_on || rec.reassess_on)}${Array.isArray(rc) && rc.length ? ": " + rc.map(esc).join(" · ") : ""}</p>`;
+  const notes = c.notes || [];
+  if (notes.length) b += `<div class="blk"><h3>מה נמצא אחרי הקריאה</h3><ul class="list">${notes.map(n => `<li><span class="mk t-warn">!</span><div>${esc(n.text)}<div class="meta"><span>${N(dmy(n.date))}</span>${n.bears_on === "unlisted" ? `<span class="t-warn">לא היה ברשימת ההנחות</span>` : ""}${n.source ? ext(n.source, "מקור") : ""}</div></div></li>`).join("")}</ul></div>`;
+  return pane("התזה וההנחות", b, "מתוך הרשומה");
+}
+function researchPane(c, rec){
+  const rs = rec.research, ck = c.research_check;
+  let b = "";
+  if (ck){
+    const pips = Array.from({length: ck.n_total}, (_, i) => `<span class="pip${i < ck.n_done ? " on" : ""}"></span>`).join("");
+    b += `<div class="rsch"><span class="pips" role="img" aria-label="${ck.n_done} מתוך ${ck.n_total} בדיקות מחקר">${pips}</span>
+      <span>מחקר ${N(ck.n_done + "/" + ck.n_total)}${ck.n_done < ck.n_total ? ` · חסר: ${esc((ck.missing || []).map(k => RLAB[k] || k).join(", "))}` : ""}${isNum(ck.searches) ? ` · ${ck.searches} שאילתות` : ""}</span></div>`;
+  }
+  if (rs && typeof rs === "object"){
+    const items = Object.entries(rs).filter(([k, v]) => v && typeof v === "object" && v.finding);
+    b += items.length ? `<div>${items.map(([k, v]) => `<div class="finding"><h4>${esc(RLAB[k] || k)}</h4><p>${esc(v.finding)}</p>${v.source ? ext(v.source) : ""}</div>`).join("")}</div>` : "";
+    if (rs.checked_on) b += `<p class="note">נבדק ב-${dmy(rs.checked_on)}${isNum(rs.searches_run) ? ` · ${rs.searches_run} חיפושים` : ""}${rs.backfilled ? " · הושלם בדיעבד" : ""}</p>`;
+  } else b += `<p class="empty">לרשומה הזו אין ממצאי מחקר מפורטים. בלוק המחקר נכנס ליומן רק בקריאות מאוחרות יותר.</p>`;
+  return pane("המחקר", b);
+}
+function postmortemPane(o, c){
+  const cat = o.error_category;
+  let b = `<div class="chips">${ocChip(outcomeOf(c))}${vchip(o.verdict)}${cat ? `<span class="chip t-warn" title="${esc((ERR[cat] || [])[1] || "")}">${esc(errName(cat))}</span><span class="note mono">${esc(cat)}</span>` : ""}${o.graded_at ? `<span class="note">נסגרה ${dmy(o.graded_at)}</span>` : ""}</div>`;
+  if (cat && ERR[cat]) b += `<p class="note">${esc(ERR[cat][1])}</p>`;
+  if (o.what_happened) b += `<div class="blk"><h3>מה קרה</h3><p class="prose">${esc(o.what_happened)}</p></div>`;
+  const R = o.assumption_review || [];
+  if (R.length) b += `<div class="blk"><h3>ההנחות בדיעבד</h3><ul class="list">${R.map(a => `<li><span class="mk ${a.held === true ? "t-ok" : a.held === false ? "t-bad" : "t-muted"}">${a.held === true ? "✔" : a.held === false ? "✘" : "?"}</span><div>${esc(a.text || "")}${a.note ? `<div class="meta"><span>${esc(a.note)}</span></div>` : ""}</div></li>`).join("")}</ul></div>`;
+  if (o.lesson) b += `<div class="blk"><h3>הלקח</h3><p class="lesson">${esc(o.lesson)}</p></div>`;
+  if (o.postmortem_md) b += `<details class="pm"><summary>התחקיר המלא</summary><div class="md">${md(o.postmortem_md)}</div></details>`;
+  return pane("תחקיר", b);
+}
+
+/* ── performance ──
+   Rebuilt 31.10 around Liad's four outcomes (OC above). The score counts only calls that were decided
+   (target or stop touched); a deadline without either is shown but left out of every percentage. */
+function vPerf(){
+  let h = `<div class="vh"><h1>ביצועים</h1><p>כל קריאה שנסגרה נמדדת לפי מה שקליבר המליץ ומה שהמחיר נגע בו קודם: היעד או הסטופ.</p></div>`;
+  if (!S.calls) return h + loading("את הקריאות");
+  const closed = S.calls.filter(c => c.bucket === "closed");
+  if (!closed.length) return h + `<p class="empty">עוד לא נסגרה קריאה.</p>`;
+  const o = ocStats(closed);
+  h += `<section class="pane"><div class="score">
+      <div class="sc-main"><span class="k">ציון קליבר</span><span class="fig">${N(pctTxt(o.score))}</span>
+        <span class="s">צדק ב-${o.right} מתוך ${o.dec} קריאות שנסגרו: פגיעות והימנעויות מוצלחות</span></div>
+      <div class="sc-sub">${scoreLine("כשהמליץ להיכנס", o.n.win, o.enterN, "פגיעות")}${scoreLine("כשהמליץ לא להיכנס", o.n.avoided, o.asideN, "הימנעויות מוצלחות")}</div>
+    </div></section>`;
+  h += `<div class="octiles">${["win", "loss", "avoided", "missed"].map(k => ocTile(k, o)).join("")}</div>`;
+  if (o.dEnter + o.dAside) h += `<p class="note ocu">דדליין שעבר בלי נגיעה ביעד או בסטופ נספר כ"נכשל" כשקליבר המליץ להיכנס, וכ"הימנעות מוצלחת" כשהמליץ לא להיכנס. ${o.dEnter + o.dAside} מהקריאות נסגרו כך.</p>`;
+  h += `<div class="cols even"><div class="col">${pane("ההמלצה מול מה שקרה", ocMatrix(o))}</div>
+    <div class="col">${pane("לפי חודש הסגירה", ocMonthly(closed), "כמה קריאות מכל סוג")}</div></div>`;
+  h += historyPane(closed);
+  if (S.stats){
+    const s = S.stats.summary || {}, br = s.brier || {};
+    let m = `<div class="strip c8">
+      ${cell("ציון ברייר", isNum(br.score) ? N(br.score.toFixed(3)) : "–", `על ${br.n} קריאות · 0 מושלם, 0.25 מטבע`)}
+      ${cell("כיוון נכון", N(num(s.direction_rate) + "%"), "הניתוח עובד גם כשהעסקה מפסידה")}
+      ${cell("נסגרה ביעד", N(num(s.close_rate) + "%"), "מחיר הסגירה בדדליין מעבר ליעד")}
+      ${cell("נפסלו בשערים", N(s.gate_no_trade + "/" + s.gate_checked), "מהקריאות שנבדקו בשערים")}
+    </div>`;
+    if (isNum(s.overshoot_median) && s.overshoot_median > 1.3)
+      m += `<section class="pane"><div class="callout"><span class="fig">${Math.round(s.overshoot_median * 100)}%</span>
+        <p>כשהכיוון נכון, המחיר עובר את היעד: בשיא הוא עשה בחציון ${Math.round(s.overshoot_median * 100)}% מהדרך אליו, על ${s.overshoot_n} קריאות. ההטיה היא הערכת חסר ולא הערכת יתר. היעד נקבע על רצועת ההתנגדות הראשונה, ובסטאפים האלה ההתנגדות היא המקום שבו התנועה מתחילה.</p></div></section>`;
+    m += `<div class="cols even"><div class="col">${pane("כיול: מה נאמר מול מה שקרה", calibration(S.stats.calibration || [], br), "לפי הביטחון המוצהר")}</div>
+      <div class="col">${pane("תנועה שנחזתה מול תנועה בפועל", scatter(closed))}${pane("קטגוריות טעות", taxonomy(S.stats.taxonomy || []), "מהתחקירים")}</div></div>`;
+    h += `<details class="more"><summary>ניתוחים נוספים: כיול, ברייר, תנועה וקטגוריות טעות</summary><div class="more-b">${m}</div></details>`;
+  }
+  return h;
+}
+function scoreLine(label, a, b, word){
+  const r = b ? a / b * 100 : null;
+  return `<div class="sl"><span class="sl-k">${label}</span><span class="sl-v">${N(pctTxt(r))}</span>
+    <div class="sl-bar" role="img" aria-label="${a} מתוך ${b}"><span style="width:${isNum(r) ? r : 0}%"></span></div>
+    <span class="sl-s">${b ? `${a} ${word} מתוך ${b}` : "עוד אין קריאות כאלה"}</span></div>`;
+}
+function ocTile(k, o){
+  const d = OC[k], v = o.n[k], base = k === "win" || k === "loss" ? o.enterN : o.asideN;
+  const ctx = k === "win" || k === "loss" ? "כשהמליץ להיכנס" : "כשהמליץ לא להיכנס";
+  return `<div class="oct t-${d.t}">
+    <span class="ot-l"><span class="g" aria-hidden="true">${d.g}</span>${d.l}</span>
+    <span class="ot-n">${N(v)}</span>
+    <span class="ot-p">${base ? `${N(pctTxt(v / base * 100))} ${ctx}` : ctx}</span>
+    <span class="ot-d">${d.d}</span></div>`;
+}
+function ocMatrix(o){
+  const c = (k, v) => `<td><span class="cv"><span class="t-${OC[k].t}"><span class="g" aria-hidden="true">${OC[k].g}</span> ${OC[k].l}</span><b class="num">${N(v)}</b></span></td>`;
+  /* the deadline column repeats the row's outcome, so it shows only the mark and the count */
+  const d = (k, v) => `<td><span class="cv" title="${OC[k].l}"><span class="t-${OC[k].t}" aria-label="${OC[k].l}">${OC[k].g}</span><b class="num">${N(v)}</b></span></td>`;
+  return `<div class="tbl"><table class="ocm"><thead><tr><th></th><th>נגע ביעד קודם</th><th>נגע בסטופ קודם</th><th>הדדליין עבר</th><th>צדק</th></tr></thead><tbody>
+    <tr><th>המליץ להיכנס</th>${c("win", o.n.win)}${c("loss", o.n.loss - o.dEnter)}${d("loss", o.dEnter)}<td class="num">${N(pctTxt(o.enterRate))}</td></tr>
+    <tr><th>המליץ לא להיכנס</th>${c("missed", o.n.missed)}${c("avoided", o.n.avoided - o.dAside)}${d("avoided", o.dAside)}<td class="num">${N(pctTxt(o.asideRate))}</td></tr>
+  </tbody></table></div>
+  <p class="note">"הדדליין עבר" = בלי נגיעה ביעד או בסטופ: נספר כ"נכשל" בשורה הראשונה וכ"הימנעות מוצלחת" בשנייה. "צדק" = פגיעות מתוך הקריאות שהמליצו להיכנס, והימנעויות מוצלחות מתוך אלה שהמליצו לא להיכנס.</p>`;
+}
+/* Month of closing: the day the stop or target was touched, else the deadline. */
+const closeDay = c => c.stop_date || c.touch_date || c.deadline || "";
+function ocMonthly(closed){
+  const by = {};
+  for (const c of closed){ const k = outcomeOf(c), m = String(closeDay(c)).slice(0, 7); if (!k || !m) continue; (by[m] = by[m] || {win:0, loss:0, avoided:0, missed:0})[k]++; }
+  const months = Object.keys(by).sort();
+  if (!months.length) return `<p class="empty">אין עדיין קריאות סגורות עם תאריך.</p>`;
+  const tot = m => OC_ORDER.reduce((a, k) => a + by[m][k], 0), mx = Math.max(...months.map(tot));
+  const rows = months.map(m => {
+    const t = tot(m), right = by[m].win + by[m].avoided;
+    const segs = OC_ORDER.map(k => by[m][k] ? `<span class="oc-${k}" style="width:${by[m][k] / mx * 100}%" title="${OC[k].l}: ${by[m][k]}"></span>` : "").join("");
+    return `<div class="ocmon"><span class="mo">${N(m.slice(5) + "." + m.slice(2, 4))}</span><div class="ocbar">${segs}</div>
+      <span class="mt">${t ? N(pctTxt(right / t * 100)) : "–"}<span class="t-muted"> · ${N(t)}</span></span></div>`;
+  }).join("");
+  return `<div class="ocmons">${rows}</div>
+    <div class="legend">${OC_ORDER.map(k => `<span><span class="sw oc-${k}" aria-hidden="true"></span>${OC[k].l}</span>`).join("")}</div>
+    <p class="note">האחוז ליד כל חודש הוא ציון קליבר באותו חודש, ואחריו מספר הקריאות שנסגרו בו.</p>`;
+}
+function calibration(rows, br){
+  if (!rows.length) return `<p class="empty">צריך קריאות סגורות עם ביטחון מוצהר.</p>`;
+  /* 0% at the right edge, as the page reads; same scale on every row */
+  const r = rows.map(b => {
+    const s = Math.max(0, Math.min(100, b.stated)), a = Math.max(0, Math.min(100, isNum(b.actual) ? b.actual : 0));
+    const col = b.actual < b.stated ? "var(--bad)" : "var(--ok)";
+    return `<div class="calr"><span class="bk">נאמר ${esc(b.bucket.replace("-", "–"))}</span>
+      <div class="ctrack" role="img" aria-label="נאמר ${b.stated}%, קרה ${b.actual}%">
+        ${[25, 50, 75].map(t => `<span class="cq" style="inset-inline-start:${t}%"></span>`).join("")}
+        <span class="cseg" style="inset-inline-start:${Math.min(s, a)}%;width:${Math.abs(a - s)}%;background:${col}"></span>
+        <span class="cdot said" style="inset-inline-start:${s}%"></span>
+        <span class="cdot" style="inset-inline-start:${a}%;background:${col}"></span>
+      </div>
+      <span class="rs">קרה ${N(b.actual + "%")} · n=${b.n}</span></div>`;
+  }).join("");
+  return `<div class="cal">${r}<div class="calr"><span></span><div class="cscale"><span>0%</span><span>50%</span><span>100%</span></div><span></span></div></div>
+    <div class="legend"><span><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="var(--pane)" stroke="var(--fg-2)" stroke-width="1.5"/></svg>אמצע הטווח שנאמר</span>
+      <span><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="var(--bad)"/></svg>קרה פחות: ביטחון יתר</span>
+      <span><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="var(--ok)"/></svg>קרה יותר</span></div>
+    <p class="note">ציון ברייר ${isNum(br.score) ? br.score.toFixed(3) : "–"} על ${br.n} קריאות: הממוצע של (ביטחון − תוצאה)². ‏0 הוא כיול מושלם, ו-0.25 הוא מי שאומר 50% על כל דבר.</p>`;
+}
+function taxonomy(t){
+  if (!t.length) return `<p class="empty">הקטגוריות יופיעו אחרי הפספוס הראשון שיתוחקר.</p>`;
+  const mx = Math.max(...t.map(x => x.n));
+  return `<div class="bars">${t.map(x => `<div class="bar" title="${esc((ERR[x.key] || [])[1] || x.desc || "")}"><span class="bl">${esc(errName(x.key))}</span>
+      <div class="bt"><div class="bf" style="width:${x.n / mx * 100}%"></div></div><span class="bn">${x.n}</span></div>`).join("")}</div>
+    <p class="note">${t.map(x => `<b>${esc(errName(x.key))}</b>: ${esc((ERR[x.key] || [, x.desc])[1] || "")}`).slice(0, 3).join(" ")}</p>`;
+}
+/* Port of the dashboard scatter: predicted vs actual move, y=x reference. */
+function scatter(rows){
+  const p = rows.filter(r => isNum(r.predicted_move_pct) && isNum(r.move_pct));
+  if (p.length < 2) return `<p class="empty">צריך לפחות שתי קריאות סגורות.</p>`;
+  const W = 420, H = 300, M = {t:14, r:14, b:40, l:46};
+  const all = p.map(x => x.predicted_move_pct).concat(p.map(x => x.move_pct));
+  let lo = Math.min(...all, 0), hi = Math.max(...all, 0);
+  const pad = Math.max((hi - lo) * .12, 1); lo -= pad; hi += pad;
+  const X = v => M.l + (v - lo) / (hi - lo) * (W - M.l - M.r), Y = v => H - M.b - (v - lo) / (hi - lo) * (H - M.t - M.b);
+  const st = niceStep(hi - lo, 5), tk = [];
+  for (let t = Math.ceil(lo / st) * st; t <= hi; t += st) tk.push(Math.round(t * 100) / 100);
+  const OCC = {win:"var(--ok)", avoided:"var(--ok)", loss:"var(--bad)", missed:"var(--warn)"};
+  const mark = d => {
+    const k = outcomeOf(d) || "avoided", col = OCC[k];
+    const x = X(d.predicted_move_pct).toFixed(1), y = Y(d.move_pct).toFixed(1), t = `<title>${esc(d.ticker)} · ${OC[k].l} · נחזה ${pct(d.predicted_move_pct)}, בפועל ${pct(d.move_pct)}</title>`;
+    if (d.verdict === "hit") return `<circle cx="${x}" cy="${y}" r="5" fill="${col}" stroke="var(--pane)" stroke-width="2">${t}</circle>`;
+    if (d.verdict === "stopped") return `<path d="M${x} ${+y - 5.5} L${+x + 5.5} ${+y + 4.5} L${+x - 5.5} ${+y + 4.5} Z" fill="${col}" stroke="var(--pane)" stroke-width="2">${t}</path>`;
+    return `<path d="M${+x - 4.5} ${+y - 4.5} L${+x + 4.5} ${+y + 4.5} M${+x + 4.5} ${+y - 4.5} L${+x - 4.5} ${+y + 4.5}" fill="none" stroke="${col}" stroke-width="2.4" stroke-linecap="round">${t}</path>`;
+  };
+  return `<svg class="scatter" viewBox="0 0 ${W} ${H}" role="img" aria-label="תנועה שנחזתה מול תנועה בפועל">
+    ${tk.map(t => `<line x1="${M.l}" x2="${W - M.r}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}" stroke="var(--line)"/>
+      <text x="${M.l - 7}" y="${(Y(t) + 4).toFixed(1)}" text-anchor="end">${t}%</text>
+      <text x="${X(t).toFixed(1)}" y="${H - M.b + 15}" text-anchor="middle">${t}%</text>`).join("")}
+    <line x1="${X(lo).toFixed(1)}" y1="${Y(lo).toFixed(1)}" x2="${X(hi).toFixed(1)}" y2="${Y(hi).toFixed(1)}" stroke="var(--muted)" stroke-width="1.3" stroke-dasharray="5 4"/>
+    <line x1="${M.l}" y1="${Y(0).toFixed(1)}" x2="${W - M.r}" y2="${Y(0).toFixed(1)}" stroke="var(--line-2)"/>
+    ${p.map(mark).join("")}
+    <text class="lh" x="${((W - M.l - M.r) / 2 + M.l).toFixed(1)}" y="${H - 6}" text-anchor="middle">תנועה שנחזתה</text>
+    <text class="lh" x="12" y="${((H - M.t - M.b) / 2 + M.t).toFixed(1)}" text-anchor="middle" transform="rotate(-90 12 ${((H - M.t - M.b) / 2 + M.t).toFixed(1)})">תנועה בפועל</text>
+  </svg>
+  <p class="note">נקודה מתחת לקו המקווקו = נחזתה תנועה גדולה ממה שקרה. צבע לפי התוצאה (ירוק: פגיעה או הימנעות מוצלחת, אדום: נכשל, כתום: פספוס), וצורה לפי מה שהמחיר נגע בו (עיגול: יעד, משולש: סטופ, איקס: הדדליין עבר בלי נגיעה). העבר את העכבר על נקודה כדי לראות את הטיקר.</p>`;
+}
+function historyPane(closed){
+  const rows = closed.slice().sort((a, b) => String(b.deadline).localeCompare(String(a.deadline)));
+  const cnt = k => rows.filter(r => outcomeOf(r) === k).length;
+  const F = [["all", `הכל ${rows.length}`]].concat(OC_ORDER.filter(k => cnt(k)).map(k => [k, `${OC[k].l} ${cnt(k)}`]));
+  const shown = S.hist === "all" || !OC[S.hist] ? rows : rows.filter(r => outcomeOf(r) === S.hist);
+  const seg = `<div class="seg" role="group" aria-label="סינון לפי תוצאה">${F.map(([k, l]) => `<button type="button" data-hist="${k}" aria-pressed="${S.hist === k}">${l}</button>`).join("")}</div>`;
+  const body = `<div style="padding:10px 14px;border-bottom:1px solid var(--line)" class="toolbar">${seg}<span class="note">לחיצה על שורה פותחת את הקריאה והתחקיר.</span></div>
+    <div class="tbl"><table><thead><tr><th>מניה</th><th>נקבעה</th><th>נסגרה</th><th>המלצה</th><th>שערים</th><th>נחזה</th><th>בפועל</th><th>תוצאה</th><th>קטגוריית טעות</th></tr></thead>
+    <tbody>${shown.map(r => `<tr data-href="call-${esc(r.id)}">
+      <td><a class="tkr-l" href="#call-${esc(r.id)}">${esc(r.ticker)}</a></td>
+      <td>${N(dmy(r.created))}</td><td>${N(dmy(closeDay(r)))}</td><td>${esc(STANCE(r.stance))}</td>
+      <td><span class="t-${gTone(r.gate)}">${esc(gLbl(r.gate))}</span></td>
+      <td>${N(pct(r.predicted_move_pct))}</td>
+      <td>${N(pct(r.move_pct))}</td>
+      <td>${ocChip(outcomeOf(r))}</td><td>${r.error_category ? esc(errName(r.error_category)) : `<span class="t-muted">–</span>`}</td></tr>`).join("")}</tbody></table></div>`;
+  return pane("היסטוריית קריאות שנסגרו", body, `${rows.length} קריאות`, "flush");
+}
+
+/* ── screen ── */
+function vScreen(){
+  let h = `<div class="vh"><h1>מה עובר היום</h1><p>לכל טיקר שליעד הביא: האם הבנייה שהתנודתיות שלו נותנת עוברת את השערים היום.</p></div>`;
+  if (S.screen === undefined) return h + loading("את המסך");
+  if (!S.screen || !(S.screen.rows || []).length) return h + `<p class="empty">המנוע עוד לא בנה את המסך.</p>`;
+  const sc = S.screen, pass = sc.rows.filter(r => r.fits);
+  h += `<section class="pane"><div class="pb">
+      <div class="chips"><span class="chip t-info">אין תקרת תנודתיות: היא קובעת את גודל הפוזיציה, לא את הזכאות</span>
+        <span class="chip plain">היעד נגזר מכל מניה: פי ${N(sc.target_mult)} מהסטופ החוקי</span></div>
+      <p class="prose">הסטופ החוקי הוא הגבוה מבין ATR לנסיגה החציונית ל-21 יום, ולכן היעד לא יכול להיות קטן ממנה. מניה תנודתית מקבלת סטופ רחב ופוזיציה קטנה. עמודת הפוזיציה היא אחוז התיק שמשאיר הפסד בודד על 2% מהתיק.</p></div></section>`;
+  const rows = sc.rows.map(r => {
+    const c = latestCallFor(r.ticker), edge = (r.on_edge || []).length;
+    return `<tr class="${r.fits ? "" : "dim"}"${c ? ` data-href="call-${esc(c.id)}"` : ""}>
+      <td>${c ? `<a class="tkr-l" href="#call-${esc(c.id)}">${esc(r.ticker)}</a>` : `<span class="mono">${esc(r.ticker)}</span>`}</td>
+      <td>${N(num(r.drawdown, 1) + "%")}</td>
+      <td>${N(num(r.stop, 1) + "%")}</td>
+      <td>${r.fits ? N(num(r.target, 1) + "%") : "–"}</td>
+      <td>${r.fits ? N(num(r.hit, 1) + "%") : "–"}</td>
+      <td>${r.fits ? N(pct(r.ev, 2)) : "–"}</td>
+      <td>${r.fits ? N(num(r.margin, 1)) : "–"}</td>
+      <td><b class="num">${num(r.position, 0)}%</b></td>
+      <td class="wrapc ${r.fits ? (edge ? "t-warn" : "t-ok") : ""}">${esc(r.verdict)}</td></tr>`;
+  }).join("");
+  h += pane("המסך", `<div class="tbl"><table><thead><tr><th>מניה</th><th>נסיגה חציונית</th><th>סטופ חוקי</th><th>יעד</th><th>פגיעה</th><th>תוחלת</th><th>מרווח</th><th>פוזיציה</th><th>פסק</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    `${pass.length} מתוך ${sc.rows.length} עוברות · נכון ל-${dmy(sc.today)}`, "flush");
+  h += `<p class="note">מרווח = כמה נקודות שיעור הפגיעה יכול לרדת לפני שהעסקה מפסידה (שערים 8 ו-9, סף 8). "על הסף" = עבר בפחות מ-2 נק׳ מעל הסף. שורה אפורה = הבנייה לא עוברת היום. לחיצה על שורה פותחת את הקריאה האחרונה על הטיקר.</p>`;
+  return h;
+}
+
+/* ── feed ── */
+function vFeed(){
+  let h = `<div class="vh"><h1>עדכונים</h1><p>מה קרה בזמן שלא הסתכלת. מה שנקרא נשמר בדפדפן הזה בלבד.</p></div>`;
+  if (!S.events) return h + loading("את העדכונים");
+  const all = sortedEvents(), un = all.filter(unread).length;
+  const list = S.feedF === "unread" ? all.filter(unread) : all;
+  h += `<div class="toolbar"><div class="seg" role="group" aria-label="סינון עדכונים">
+      <button type="button" data-feed="all" aria-pressed="${S.feedF === "all"}">הכל ${all.length}</button>
+      <button type="button" data-feed="unread" aria-pressed="${S.feedF === "unread"}">לא נקראו ${un}</button></div>
+    <button type="button" class="btn" id="markAll" data-act="markall"${un ? "" : " disabled"}>סמן הכל כנקרא</button></div>`;
+  if (!list.length) return h + pane("הפיד", `<p class="empty" style="padding:12px 14px">${S.feedF === "unread" ? "אין עדכונים שלא נקראו." : "אין עדכונים עדיין."}</p>`, "", "flush");
+  let body = "", day = "";
+  for (const e of list){
+    if (e.date !== day){ day = e.date; body += `<div class="dday">${wday(day)} ${dmy(day)}</div>`; }
+    body += feedItem(e);
+  }
+  h += pane("הפיד", body, `${list.length} עדכונים`, "flush");
+  return h;
+}
+
+/* ── trading journal (stage 4). journal/{id} in the db is the source of truth: rows
+   are created here (39+2 came once from the Cowork journal, source "cowork"), and the
+   cloud engine reads the open ones for the skill's "Open positions right now". ── */
+const JKEY = "caliber.app.journal.v1";
+const CLS = {Equity:"מניה", ETF:"תעודת סל", Option:"אופציה", Bond:"אג״ח", Other:"אחר"};
+const MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+try {
+  const j = JSON.parse(localStorage.getItem(JKEY) || "null");
+  if (j && typeof j === "object"){
+    if (["all", "open", "closed"].includes(j.status)) S.j.status = j.status;
+    if (["ticker", "entryDate", "exitDate", "days", "cost", "net", "pct"].includes(j.sort)) S.j.sort = j.sort;
+    if (j.dir === "asc" || j.dir === "desc") S.j.dir = j.dir;
+  }
+} catch (e) {}
+function saveJ(){ try { localStorage.setItem(JKEY, JSON.stringify({status: S.j.status, sort: S.j.sort, dir: S.j.dir})); } catch (e) {} }
+
+const jRows = () => S.journal || [];
+const tradesFor = id => jRows().filter(t => t.callId === id);
+const isOpenT = t => !isNum(t.exit);
+const isUsd = t => (t.ccy || "USD") !== "ILS";
+const mult = t => t.cls === "Option" ? 100 : 1;
+const levOf = t => isNum(t.lev) && t.lev > 0 ? t.lev : 1;
+const costOf = t => isNum(t.entry) && isNum(t.qty) ? t.entry * t.qty * mult(t) : null;
+const curOf = t => isUsd(t) ? "$" : "₪";
+/* Cowork's rule: gross = (exit − entry) × qty, sign by direction; net = gross − commissions.
+   A row Liad logged without an entry price keeps the net he typed by hand (mNet). */
+function pnlOf(t){
+  if (!isNum(t.exit)) return null;
+  if (!isNum(t.entry) || !isNum(t.qty)) return isNum(t.mNet) ? {net: t.mNet, pct: null, manual: true} : null;
+  const s = t.dir === "Short" ? -1 : 1, g = (t.exit - t.entry) * t.qty * mult(t) * s;
+  return {net: g - (isNum(t.comm) ? t.comm : 0), pct: t.entry ? (t.exit - t.entry) / t.entry * 100 * s : null};
+}
+const money = (v, c = "$", d = 0) => isNum(v) ? c + Math.abs(v).toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}) : "–";
+const smoney = (v, c = "$") => isNum(v) ? (v > 0.5 ? "+" : v < -0.5 ? "−" : "") + money(v, c) : "–";
+const kmoney = v => { if (!isNum(v)) return "–"; const a = Math.abs(v), s = v > 0.5 ? "+" : v < -0.5 ? "−" : ""; return s + "$" + (a >= 1000 ? (a / 1000).toFixed(a >= 10000 ? 0 : 1).replace(/\.0$/, "") + "K" : Math.round(a)); };
+const pxf = v => isNum(v) ? v.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: v < 10 ? 3 : 2}) : "–";
+const qf = v => isNum(v) ? v.toLocaleString("en-US", {maximumFractionDigits: 2}) : "–";
+const heldDays = t => { const end = t.exitDate || (isOpenT(t) ? today() : ""); return t.entryDate && end ? dayDiff(t.entryDate, end) : null; };
+const pfUsd = () => S.portfolio && isNum(S.portfolio.usd) && S.portfolio.usd > 0 ? S.portfolio.usd : null;
+const signCls = v => isNum(v) && v > 0.5 ? "t-ok" : isNum(v) && v < -0.5 ? "t-bad" : "";
+/* Market prices: positions/prices holds the last completed close of every open dollar
+   position, written by the Mac's sync (bin/sync.py --journal), since the page cannot
+   fetch prices. Yahoo's closes are split-adjusted while a row keeps the units it was
+   entered in, so each split after the entry day scales the close back (× num / den).
+   A row with no usable price, or a close older than its entry, stays at cost. */
+function markOf(t){
+  if (!isOpenT(t) || !isUsd(t) || t.cls === "Option" || !isNum(t.entry) || !isNum(t.qty) || !t.entryDate) return null;
+  const m = S.px && S.px.prices && S.px.prices[String(t.ticker || "").trim().toUpperCase()];
+  if (!m || !isNum(m.close) || !m.date || m.date < t.entryDate || (m.since && t.entryDate < m.since)) return null;
+  let f = 1; const splits = [];
+  for (const s of m.splits || []){
+    const r = s && s.ratio || [];
+    if (s.date > t.entryDate && isNum(r[0]) && isNum(r[1]) && r[0] > 0 && r[1] > 0){ f *= r[0] / r[1]; splits.push(s); }
+  }
+  const px = m.close * f, sg = t.dir === "Short" ? -1 : 1, val = px * t.qty * mult(t);
+  return {px, date: m.date, splits, val, upl: (px - t.entry) * t.qty * mult(t) * sg - (isNum(t.comm) ? t.comm : 0),
+    pct: t.entry ? (px - t.entry) / t.entry * 100 * sg : null};
+}
+const splitTxt = s => { const [a, b] = s.ratio; return `${a >= b ? "פיצול" : "איחוד"} ${a}:${b} ב-${dmy(s.date)}`; };
+/* "סגירה של 19.10", in warning tone when the Mac has not synced for days. */
+function pxAsOf(){
+  const x = S.px; if (!x || !x.asof) return "";
+  const old = dayDiff(x.asof, today()) > 4;
+  return `<span class="${old ? "t-warn" : ""}">סגירה של ${N(dmy(x.asof))}${old ? ", ישן" : ""}</span>`;
+}
+
+function jStats(){
+  const rows = jRows(), open = rows.filter(isOpenT), closed = rows.filter(t => !isOpenT(t));
+  const cu = closed.filter(isUsd).map(t => ({t, p: pnlOf(t)})).filter(x => x.p);
+  const wins = cu.filter(x => x.p.net > 0), losses = cu.filter(x => x.p.net < 0);
+  const ou = open.filter(isUsd), m = today().slice(0, 7), mon = cu.filter(x => (x.t.exitDate || "").startsWith(m));
+  const avg = a => a.length ? a.reduce((s, x) => s + x.p.net, 0) / a.length : null;
+  // at market where the Mac priced the position, at cost where it did not
+  const mk = ou.map(t => ({t, m: markOf(t)})), mm = mk.filter(x => x.m);
+  return {open, closed, cu, wins, losses, ou, month: m, monN: mon.length,
+    priced: mm.length, unpriced: mk.filter(x => !x.m).map(x => x.t),
+    splitT: mm.filter(x => x.m.splits.length).map(x => x.t),
+    upl: mm.reduce((s, x) => s + x.m.upl, 0), uplCost: mm.reduce((s, x) => s + costOf(x.t), 0),
+    val: mk.reduce((s, x) => s + (x.m ? x.m.val : costOf(x.t) || 0), 0),
+    mexp: mk.reduce((s, x) => s + (x.m ? x.m.val : costOf(x.t) || 0) * levOf(x.t), 0),
+    net: cu.reduce((s, x) => s + x.p.net, 0),
+    comm: closed.filter(isUsd).reduce((s, t) => s + (isNum(t.comm) ? t.comm : 0), 0),
+    cost: ou.reduce((s, t) => s + (costOf(t) || 0), 0),
+    exp: ou.reduce((s, t) => s + (costOf(t) || 0) * levOf(t), 0),
+    monNet: mon.reduce((s, x) => s + x.p.net, 0), avgW: avg(wins), avgL: avg(losses)};
+}
+
+function vJournal(){
+  if (S.dbState === "none") return `<p class="empty">אין חיבור לריפו, ולכן אין יומן להציג.</p>`;
+  if (!S.journal) return loading("את יומן המסחר");
+  const st = jStats(), pf = pfUsd(), ils = st.open.length - st.ou.length, at = pxAsOf();
+  const rest = st.unpriced.length ? ` · ${st.unpriced.length} לפי עלות` : "";
+  const upl = st.priced
+    ? cell("רווח לא ממומש", `<span class="${signCls(st.upl)}">${N(smoney(st.upl))}</span>`, `${st.uplCost ? N(pct(st.upl / st.uplCost * 100)) + " על העלות · " : ""}${at}${rest}`)
+    : cell("רווח לא ממומש", N("–"), S.px === undefined ? "טוען מחירים…" : "עוד אין מחירי שוק");
+  let h = `<div class="strip c6">
+    ${cell("פוזיציות פתוחות", N(st.open.length), `עלות ${money(st.cost)}${st.priced ? ` · שווי ${money(st.val)}` : ""}${ils ? ` · ועוד ${ils} בשקלים` : ""}`)}
+    ${upl}
+    ${cell("חשיפה אפקטיבית", N(money(st.mexp)), `${pf ? `${num(st.mexp / pf * 100, 0)}% מהתיק · ` : ""}${st.priced ? "שווי שוק" : "עלות"} כפול מינוף`)}
+    ${cell("רווח ממומש נטו", `<span class="${signCls(st.net)}">${N(smoney(st.net))}</span>`, `${N(st.wins.length + "/" + st.cu.length)} ברווח · עמלות ${money(st.comm)}`)}
+    ${cell("רווח ממוצע בעסקה מנצחת", `<span class="t-ok">${N(kmoney(st.avgW))}</span>`, isNum(st.avgL) ? `הפסד ממוצע ${N(kmoney(st.avgL))}${isNum(st.avgW) && st.avgL ? ` · יחס ${Math.abs(st.avgW / st.avgL).toFixed(2)}` : ""}` : "עוד אין עסקה בהפסד")}
+    ${cell(`${MONTHS[+st.month.slice(5) - 1]} עד עכשיו`, `<span class="${signCls(st.monNet)}">${N(smoney(st.monNet))}</span>`, st.monN ? `${st.monN} ${st.monN === 1 ? "עסקה נסגרה" : "עסקאות נסגרו"}` : "עוד לא נסגרה עסקה החודש")}
+  </div>`;
+  h += `<div class="cols even"><div class="col">${pane("רווח והפסד לפי חודש", monthlyChart(st), `נטו אחרי עמלות, לפי חודש היציאה`)}</div>
+    <div class="col">${pane("חשיפה לפי סקטור", exposure(st, pf), st.priced ? `פוזיציות פתוחות · ${at}` : "פוזיציות פתוחות")}</div></div>`;
+  h += tradesPane();
+  return h;
+}
+
+/* A bar anchored at the zero line, with only its far end rounded. */
+function barPath(x, w, y0, y1){
+  const r = Math.min(4, w / 2, Math.abs(y0 - y1)), x2 = x + w, f = n => n.toFixed(1), k = y1 < y0 ? r : -r;
+  return `M${f(x)} ${f(y0)} V${f(y1 + k)} Q${f(x)} ${f(y1)} ${f(x + r)} ${f(y1)} H${f(x2 - r)} Q${f(x2)} ${f(y1)} ${f(x2)} ${f(y1 + k)} V${f(y0)} Z`;
+}
+/* Net P&L of the closed dollar trades by exit month, every month from the first exit to
+   now, so an empty month reads as zero instead of disappearing. */
+function monthlyChart(st){
+  const by = new Map(); let undated = null;
+  for (const {t, p} of st.cu){
+    if (!t.exitDate){ undated = undated || {net: 0, tk: []}; undated.net += p.net; undated.tk.push(t.ticker); continue; }
+    const k = t.exitDate.slice(0, 7), e = by.get(k) || {net: 0, n: 0, w: 0};
+    e.net += p.net; e.n++; if (p.net > 0) e.w++; by.set(k, e);
+  }
+  if (!by.size) return `<p class="empty">עוד אין עסקאות סגורות עם תאריך יציאה.</p>`;
+  const keys = [...by.keys()].sort(), end = keys[keys.length - 1] > st.month ? keys[keys.length - 1] : st.month;
+  const months = [];
+  for (let y = +keys[0].slice(0, 4), m = +keys[0].slice(5); months.length < 60; ){
+    const k = `${y}-${String(m).padStart(2, "0")}`; months.push(k);
+    if (k >= end) break;
+    if (++m > 12){ m = 1; y++; }
+  }
+  const mname = k => `${MONTHS[+k.slice(5) - 1]} ${k.slice(0, 4)}`;
+  const W = 560, H = 236, M = {t: 22, r: 8, b: 28, l: 50};
+  const iw = W - M.l - M.r, ih = H - M.t - M.b, bw = iw / months.length, w = Math.min(bw * .6, 34);
+  const vals = months.map(k => (by.get(k) || {net: 0}).net);
+  let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+  const pad = (hi - lo) * .14 || 100; if (hi > 0) hi += pad; if (lo < 0) lo -= pad;
+  const Y = v => M.t + (hi - v) / (hi - lo) * ih, step = niceStep(hi - lo, 4);
+  let g = "";
+  for (let i = Math.ceil(lo / step); i * step <= hi + 1e-9; i++){
+    const v = i * step, y = Y(v).toFixed(1);
+    g += `<line class="${i === 0 ? "z" : "gl"}" x1="${M.l}" x2="${W - M.r}" y1="${y}" y2="${y}"/><text x="${M.l - 6}" y="${(+y + 3.5).toFixed(1)}" text-anchor="end">${kmoney(v).replace("+", "")}</text>`;
+  }
+  const sel = S.j.month, every = months.length > 12 ? 2 : 1;
+  let bars = "", labs = "", xs = "", hits = "";
+  months.forEach((k, i) => {
+    const e = by.get(k), cx = M.l + (i + .5) * bw;
+    if (i % every === 0 || k === sel) xs += `<text x="${cx.toFixed(1)}" y="${H - M.b + 16}" text-anchor="middle">${k.slice(5)}.${k.slice(2, 4)}</text>`;
+    if (e && Math.abs(e.net) > 0.5){
+      const y0 = Y(0), y1 = Y(e.net), up = e.net > 0;
+      bars += `<path class="${up ? "up" : "dn"}${sel && sel !== k ? " dim" : ""}" d="${barPath(cx - w / 2, w, y0, y1)}"/>`;
+      labs += `<text class="vl" x="${cx.toFixed(1)}" y="${(up ? y1 - 6 : y1 + 13).toFixed(1)}" text-anchor="middle">${kmoney(e.net)}</text>`;
+    }
+    const tip = e ? `${mname(k)} · נטו ${smoney(e.net)} · ${e.n} ${e.n === 1 ? "עסקה" : "עסקאות"}, ${e.w} ברווח` : `${mname(k)} · לא נסגרה עסקה`;
+    hits += `<rect class="hit" x="${(M.l + i * bw).toFixed(1)}" y="${M.t}" width="${bw.toFixed(1)}" height="${ih}"${e ? ` data-jmonth="${k}"` : ""}><title>${esc(tip)}</title></rect>`;
+  });
+  const aria = "רווח נטו לפי חודש: " + keys.map(k => `${mname(k)} ${smoney(by.get(k).net)}`).join(", ");
+  let out = `<div class="tbl"><svg class="mchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">${g}${bars}${labs}${xs}${hits}</svg></div>
+    <div class="legend"><span><span class="sw box" style="background:var(--ok)"></span>חודש ברווח</span><span><span class="sw box" style="background:var(--bad)"></span>חודש בהפסד</span><span>לחיצה על חודש מסננת את הטבלה</span></div>`;
+  if (undated) out += `<p class="note">לא בגרף: ${undated.tk.map(esc).join(", ")} נסגרה בלי תאריך יציאה (${N(smoney(undated.net))}). אפשר להוסיף תאריך בעריכה.</p>`;
+  const ils = st.closed.filter(t => !isUsd(t));
+  if (ils.length) out += `<p class="note">לא בסכומים הדולריים: ${ils.map(t => `${esc(t.ticker)} ${N(smoney((pnlOf(t) || {}).net, "₪"))}`).join(", ")}, בשקלים.</p>`;
+  return out;
+}
+/* Open positions by sector, at market value times leverage (at cost where the Mac has no
+   price). A sector here is a theme: names that move together share one, because the
+   engine treats them as one exposure. */
+function exposure(st, pf){
+  const g = new Map();
+  for (const t of st.ou){
+    const mk = markOf(t), c = mk ? mk.val : costOf(t); if (!isNum(c)) continue;
+    const k = (t.sector || "").trim() || "-", e = g.get(k) || {k, exp: 0, tk: []};
+    e.exp += c * levOf(t);
+    e.tk.push(t.ticker + (levOf(t) > 1 ? ` ×${levOf(t)}` : "") + (t.dir === "Short" ? " (שורט)" : "") + (st.priced && !mk ? " (עלות)" : ""));
+    g.set(k, e);
+  }
+  if (!g.size) return `<p class="empty">אין פוזיציות פתוחות.</p>`;
+  const rows = [...g.values()].sort((a, b) => b.exp - a.exp), mx = rows[0].exp || 1, tot = rows.reduce((s, r) => s + r.exp, 0) || 1;
+  const body = rows.map(r => `<button type="button" class="xrow" data-jsector="${esc(r.k)}" aria-pressed="${S.j.sector === r.k}">
+      <span class="xl${r.k === "-" ? " t-muted" : ""}">${esc(r.k === "-" ? "לא סווג" : r.k)}</span>
+      <span class="xt" aria-hidden="true"><span class="xf" style="width:${(r.exp / mx * 100).toFixed(1)}%"></span></span>
+      <span class="xv">${money(r.exp)} · ${pf ? num(r.exp / pf * 100, 1) : num(r.exp / tot * 100, 0)}%</span>
+      <span class="xk">${r.tk.map(esc).join(" · ")}</span></button>`).join("");
+  return `<div class="xp">${body}</div>
+    <p class="note">${pf ? "האחוז הוא מגודל התיק." : "האחוז הוא מסך החשיפה. אחרי שתזין גודל תיק הוא יהיה מהתיק."} ${st.priced
+      ? `לפי שווי השוק כפול המינוף, בסגירה של ${N(dmy(S.px.asof))}.${st.unpriced.length ? ` בלי מחיר שוק, ולכן לפי עלות: ${st.unpriced.map(t => esc(t.ticker)).join(", ")}.` : ""}${st.splitT.length ? ` ${st.splitT.map(t => esc(t.ticker)).join(", ")}: היה פיצול או איחוד מניות אחרי הכניסה, והמחיר מותאם לכמות שביומן.` : ""}`
+      : "לפי מחיר הכניסה כפול המינוף: עוד אין מחירי שוק."} לחיצה על שורה מסננת את הטבלה.</p>`;
+}
+
+function tradesPane(){
+  const rows = jRows(), q = S.j.q.trim().toLowerCase();
+  let shown = rows.filter(t => S.j.status === "all" || (S.j.status === "open") === isOpenT(t));
+  if (S.j.month) shown = shown.filter(t => !isOpenT(t) && (t.exitDate || "").startsWith(S.j.month));
+  if (S.j.sector) shown = shown.filter(t => ((t.sector || "").trim() || "-") === S.j.sector);
+  if (q) shown = shown.filter(t => [t.ticker, t.sector, t.notes].some(v => String(v || "").toLowerCase().includes(q)));
+  const KEY = {ticker: t => t.ticker || "", entryDate: t => t.entryDate || "", exitDate: t => t.exitDate || (isOpenT(t) ? "9999" : ""),
+    days: heldDays, cost: costOf,
+    net: t => { const p = pnlOf(t), m = markOf(t); return p && isUsd(t) ? p.net : m ? m.upl : null; },
+    pct: t => { const p = pnlOf(t), m = markOf(t); return p ? p.pct : m ? m.pct : null; }};
+  const key = KEY[S.j.sort] || KEY.entryDate, dir = S.j.dir === "asc" ? 1 : -1;
+  shown.sort((a, b) => {
+    const x = key(a), y = key(b);
+    if (x == null || y == null) return x == null && y == null ? 0 : x == null ? 1 : -1;
+    return (x < y ? -1 : x > y ? 1 : 0) * dir || String(a._id).localeCompare(String(b._id));
+  });
+  const cnt = {all: rows.length, open: rows.filter(isOpenT).length, closed: rows.filter(t => !isOpenT(t)).length};
+  const seg = `<div class="seg" role="group" aria-label="סינון לפי מצב">${[["all", "הכל"], ["open", "פתוחות"], ["closed", "סגורות"]].map(([k, l]) => `<button type="button" data-jstat="${k}" aria-pressed="${S.j.status === k}">${l} ${cnt[k]}</button>`).join("")}</div>`;
+  const chips = [];
+  if (S.j.month) chips.push(`<span class="chip plain">יציאה ב${MONTHS[+S.j.month.slice(5) - 1]} ${S.j.month.slice(0, 4)}</span><button type="button" class="btn sm" data-jact="clr-month">נקה</button>`);
+  if (S.j.sector) chips.push(`<span class="chip plain">סקטור: ${esc(S.j.sector === "-" ? "לא סווג" : S.j.sector)}</span><button type="button" class="btn sm" data-jact="clr-sector">נקה</button>`);
+  if (q) chips.push(`<span class="chip plain">חיפוש: ${esc(S.j.q.trim())}</span><button type="button" class="btn sm" data-jact="clr-q">נקה</button>`);
+  const th = (k, l) => { const on = S.j.sort === k; return `<th${on ? ` aria-sort="${S.j.dir === "asc" ? "ascending" : "descending"}"` : ""}><button type="button" class="sort" data-jsort="${k}">${l}${on ? `<span class="sarr" aria-hidden="true">${S.j.dir === "asc" ? "▲" : "▼"}</span>` : ""}</button></th>`; };
+  const rw = S.db && S.canWrite !== false;
+  const body = shown.map(t => {
+    const p = pnlOf(t), c = curOf(t), open = isOpenT(t), dd = heldDays(t), m = markOf(t), tone = p ? signCls(p.net) : m ? signCls(m.upl) : "";
+    const last = m ? `<span class="sub">אחרון ${N(pxf(m.px))}</span>${m.splits.map(s => `<span class="sub" title="המחיר הותאם לכמות שביומן">${esc(splitTxt(s))}</span>`).join("")}` : "";
+    return `<tr>
+      <td><span class="tj">${esc(t.ticker)}</span>${t.callId ? `<a class="chip t-info" href="#call-${esc(t.callId)}" title="הקריאה של קליבר">קליבר</a>` : ""}${t.notes ? `<span class="sub clip1" title="${esc(t.notes)}">${esc(t.notes)}</span>` : ""}</td>
+      <td>${t.dir === "Short" ? "שורט" : "לונג"}${levOf(t) > 1 ? ` <span class="t-warn">${N("×" + levOf(t))}</span>` : ""}<span class="sub">${esc(CLS[t.cls] || t.cls || "")}</span></td>
+      <td>${N(qf(t.qty))}</td>
+      <td>${N(pxf(t.entry))}<span class="sub">${N(dmy(t.entryDate))}</span></td>
+      <td>${open ? `<span class="chip t-info">פתוחה</span>${last}` : `${N(pxf(t.exit))}<span class="sub">${t.exitDate ? N(dmy(t.exitDate)) : "בלי תאריך"}</span>`}</td>
+      <td>${isNum(dd) ? N(dd) : "–"}</td>
+      <td>${N(money(costOf(t), c))}${m ? `<span class="sub">שווי ${N(money(m.val))}</span>` : ""}</td>
+      <td class="${tone}">${p ? N(smoney(p.net, c)) + (p.manual ? `<span class="sub">נרשם ידנית</span>` : "") : m ? N(smoney(m.upl)) + `<span class="sub">לא ממומש</span>` : "–"}</td>
+      <td class="${tone}">${p && isNum(p.pct) ? N(pct(p.pct)) : m && isNum(m.pct) ? N(pct(m.pct)) : "–"}</td>
+      <td>${t.sector ? esc(t.sector) : `<span class="t-muted">לא סווג</span>`}</td>
+      <td>${rw ? `<span class="acts"><button type="button" class="btn sm" data-jact="edit" data-t="${esc(t._id)}">ערוך</button>${open ? `<button type="button" class="btn sm" data-jact="close" data-t="${esc(t._id)}">סגור</button>` : ""}</span>` : ""}</td></tr>`;
+  }).join("");
+  const sum = shown.filter(t => isUsd(t) && !isOpenT(t)).reduce((s, t) => s + ((pnlOf(t) || {}).net || 0), 0);
+  const marked = shown.map(markOf).filter(Boolean), usum = marked.reduce((s, m) => s + m.upl, 0);
+  const top = `<div class="toolbar" style="padding:10px 14px;border-bottom:1px solid var(--line)">${seg}${chips.length ? `<span class="fchips">${chips.join("")}</span>` : ""}</div>`;
+  const tbl = shown.length ? `<div class="tbl"><table class="jt"><thead><tr>${th("ticker", "מניה")}<th>כיוון</th><th>כמות</th>${th("entryDate", "כניסה")}${th("exitDate", "יציאה")}${th("days", "ימים")}${th("cost", "עלות")}${th("net", "נטו")}${th("pct", "%")}<th>סקטור</th><th aria-label="פעולות"></th></tr></thead><tbody>${body}</tbody></table></div>`
+    : `<p class="empty" style="padding:12px 14px">${rows.length ? "אין עסקאות שמתאימות לסינון." : "היומן ריק. ״עסקה חדשה״ מוסיף את הראשונה."}</p>`;
+  return pane("העסקאות", top + tbl, `${shown.length} מוצגות${shown.some(t => !isOpenT(t) && isUsd(t)) ? ` · נטו ${N(smoney(sum))}` : ""}${marked.length ? ` · לא ממומש ${N(smoney(usum))}, ${pxAsOf()}` : ""}`, "flush");
+}
+
+/* On the call screen: the journal rows that point at this call. */
+function myTradesPane(c){
+  const mine = tradesFor(c.id);
+  if (!mine.length) return "";
+  const li = mine.map(t => {
+    const p = pnlOf(t), open = isOpenT(t), m = markOf(t);
+    return `<li><span class="mk ${open ? "t-info" : signCls(p && p.net)}">${open ? "○" : "●"}</span><div>${N(qf(t.qty))} × ${N(pxf(t.entry))} מ-${N(dmy(t.entryDate))}
+      ${open ? `<div class="meta"><span>פתוחה · עלות ${N(money(costOf(t)))}${m ? ` · שווי ${N(money(m.val))}` : ""}</span>${m ? `<span class="${signCls(m.upl)}">${N(smoney(m.upl))} לא ממומש</span><span>${pxAsOf()}</span>` : ""}</div>` :`<div class="meta"><span>יציאה ${N(pxf(t.exit))}${t.exitDate ? ` ב-${N(dmy(t.exitDate))}` : ""}</span><span class="${signCls(p && p.net)}">${N(smoney(p && p.net))}</span></div>`}</div></li>`;
+  }).join("");
+  return pane("העסקאות שלי בקריאה", `<ul class="list">${li}</ul><button type="button" class="btn sm" data-jact="show" data-q="${esc(c.ticker)}" style="justify-self:start">ביומן המסחר ←</button>`, String(mine.length));
+}
+
+function jClick(b){
+  const d = b.dataset;
+  if (d.jstat){ S.j.status = d.jstat; if (d.jstat === "open") S.j.month = null; saveJ(); }
+  else if (d.jsort){ if (S.j.sort === d.jsort) S.j.dir = S.j.dir === "asc" ? "desc" : "asc"; else { S.j.sort = d.jsort; S.j.dir = d.jsort === "ticker" ? "asc" : "desc"; } saveJ(); }
+  else if (d.jmonth){ S.j.month = S.j.month === d.jmonth ? null : d.jmonth; if (S.j.month){ S.j.sector = null; if (S.j.status === "open") S.j.status = "all"; } }
+  else if (d.jsector){ S.j.sector = S.j.sector === d.jsector ? null : d.jsector; if (S.j.sector){ S.j.month = null; S.j.status = "open"; } }
+  else if (d.jact === "add") return openTM("add");
+  else if (d.jact === "edit") return openTM("edit", {id: d.t});
+  else if (d.jact === "close") return openTM("close", {id: d.t});
+  else if (d.jact === "enter"){ const c = findCall(d.c); if (c) openTM("enter", {call: c}); return; }
+  else if (d.jact === "clr-month") S.j.month = null;
+  else if (d.jact === "clr-sector") S.j.sector = null;
+  else if (d.jact === "clr-q"){ S.j.q = ""; $("jSearch").value = ""; }
+  else if (d.jact === "show"){ S.j.q = d.q || ""; $("jSearch").value = S.j.q; Object.assign(S.j, {status: "all", month: null, sector: null}); go("journal"); return; }
+  draw();
+}
+
+/* ── the trade form ── */
+const TM = {mode: null, id: null, call: null, opener: null, delArm: false, busy: false};
+const FIELDS = ["ticker", "dir", "cls", "entry", "qty", "entryDate", "sector", "lev", "call", "exitHead", "exit", "exitDate", "comm", "notes"];
+const SHOW = {add: FIELDS, edit: FIELDS, enter: FIELDS.filter(f => !["exitHead", "exit", "exitDate"].includes(f)), close: ["exit", "exitDate", "comm", "notes"]};
+const fv = id => $(id).value.trim();
+const fnum = id => { const s = fv(id).replace(/[,\s$₪]/g, ""); if (!s) return null; const v = Number(s); return isFinite(v) ? v : NaN; };
+function tmMsg(t, tone = ""){ const el = $("tmMsg"); el.textContent = t; if (tone) el.dataset.tone = tone; else delete el.dataset.tone; }
+let toastT = 0;
+function toast(t){ const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 3500); }
+function callOptions(ticker, sel){
+  const cs = callsBy().filter(c => c.ticker === ticker).sort((a, b) => String(b.created).localeCompare(String(a.created)));
+  return `<option value="">בלי קישור</option>` + cs.map(c => `<option value="${esc(c.id)}"${c.id === sel ? " selected" : ""}>${esc(dmy(c.created))} · ${esc(STANCE(c.stance))}</option>`).join("")
+    + (sel && !cs.some(c => c.id === sel) ? `<option value="${esc(sel)}" selected>${esc(sel)}</option>` : "");
+}
+function sectorFor(ticker){ let b = null; for (const t of jRows()) if (t.ticker === ticker && t.sector && (!b || String(t.entryDate) > String(b.entryDate))) b = t; return b ? b.sector : ""; }
+function writeErr(err){
+  const c = err && err.code;
+  if (c === "forbidden"){ S.canWrite = false; askReady(); return "השמירה נדחתה: לטוקן אין הרשאת Contents לכתיבה."; }
+  if (c === "conflict") return "היומן השתנה במקביל ממכשיר אחר. נסה לשמור שוב.";
+  return `השמירה נכשלה (${c || "שגיאה"}). נסה שוב בעוד רגע.`;
+}
+function openTM(mode, opts = {}){
+  if (!S.db || S.canWrite === false) return;
+  const t = opts.id ? jRows().find(x => x._id === opts.id) : null;
+  if ((mode === "edit" || mode === "close") && !t) return;
+  Object.assign(TM, {mode, id: t ? t._id : null, call: opts.call || null, opener: document.activeElement, delArm: false, busy: false});
+  const c = TM.call, T = today(), set = (id, v) => { $(id).value = v == null ? "" : String(v); };
+  const base = mode === "edit" ? t : {};
+  set("tmTicker", mode === "enter" ? c.ticker : base.ticker);
+  $("tmDir").value = mode === "enter" ? (c.direction === "short" ? "Short" : "Long") : base.dir === "Short" ? "Short" : "Long";
+  $("tmCls").value = CLS[base.cls] ? base.cls : "Equity";
+  const px0 = mode === "enter" ? (isNum(c.current) ? c.current : c.entry) : null;
+  set("tmEntry", mode === "enter" ? (isNum(px0) ? Math.round(px0 * 100) / 100 : "") : base.entry);
+  set("tmQty", base.qty);
+  set("tmEntryDate", mode === "edit" ? base.entryDate : T);
+  set("tmSector", mode === "enter" ? sectorFor(c.ticker) : base.sector);
+  set("tmLev", mode === "edit" ? levOf(t) : 1);
+  $("tmCall").innerHTML = callOptions(mode === "enter" ? c.ticker : base.ticker || "", mode === "enter" ? c.id : base.callId || "");
+  set("tmExit", mode === "edit" ? base.exit : "");
+  set("tmExitDate", mode === "edit" ? base.exitDate : mode === "close" ? T : "");
+  set("tmComm", mode === "close" || mode === "edit" ? (isNum(t.comm) ? t.comm : 0) : 6);
+  set("tmNotes", t ? t.notes : "");
+  for (const f of FIELDS) $("tf-" + f).hidden = !SHOW[mode].includes(f);
+  $("tmTicker").readOnly = mode === "enter"; $("tmCall").disabled = mode === "enter";
+  $("tmDel").hidden = mode !== "edit"; $("tmDel").textContent = "מחק עסקה";
+  $("tmSave").textContent = {add: "הוסף ליומן", enter: "הוסף ליומן", edit: "שמור שינויים", close: "סגור עסקה"}[mode];
+  $("tmTitle").textContent = {add: "עסקה חדשה", enter: `נכנסתי לעסקה: ${c && c.ticker}`, edit: `עריכת עסקה: ${t && t.ticker}`, close: `סגירת עסקה: ${t && t.ticker}`}[mode];
+  $("tmSectors").innerHTML = [...new Set(jRows().map(x => (x.sector || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "he")).map(x => `<option value="${esc(x)}"></option>`).join("");
+  $("tmQty").dataset.touched = mode === "enter" ? "" : "1";
+  tmMsg(mode === "edit" && t.source === "cowork" ? "יובאה מיומן Cowork." : ""); sizing();
+  $("tm").hidden = false; document.body.style.overflow = "hidden";
+  setTimeout(() => { try { (mode === "close" ? $("tmExit") : mode === "enter" ? $("tmEntry") : $("tmTicker")).focus(); } catch (e) {} }, 0);
+}
+function closeTM(){
+  $("tm").hidden = true; document.body.style.overflow = ""; TM.mode = null;
+  const o = TM.opener; TM.opener = null;
+  if (o && document.contains(o)) try { o.focus(); } catch (e) {}
+}
+/* "נכנסתי לעסקה": Caliber's size is a share of the portfolio that leaves a stop-out at 2%
+   of it, so the suggested quantity needs the portfolio size Liad enters on the journal. */
+function sizing(){
+  const box = $("tmSizing");
+  if (TM.mode === "close"){
+    const t = jRows().find(x => x._id === TM.id);
+    box.innerHTML = t ? `<span><b class="mono">${esc(t.ticker)}</b> · ${t.dir === "Short" ? "שורט" : "לונג"} · ${N(qf(t.qty))} × ${N(pxf(t.entry))} מ-${N(dmy(t.entryDate))}</span><span class="note">עלות ${N(money(costOf(t), curOf(t)))}</span>` : "";
+    box.hidden = !t; return;
+  }
+  if (TM.mode !== "enter" || !TM.call){ box.hidden = true; return; }
+  const c = TM.call, geo = geometry(c), pf = pfUsd(), price = fnum("tmEntry"), a = c.action || {};
+  let h = `<span>ההמלצה של קליבר: <b class="${a.tone === "good" ? "t-ok" : "t-hold"}">${esc(a.do || STANCE(c.stance))}</b> · יעד ${N(n2(c.target_low))} · סטופ ${N(n2(c.stop))}</span>`;
+  if (isNum(geo.pos)){
+    h += `<span>גודל פוזיציה: <b>${N(num(geo.pos, 1) + "%")}</b> מהתיק, כך שהפסד בסטופ הוא 2% מהתיק.</span>`;
+    if (pf && isNum(price) && price > 0){
+      const q = Math.floor(pf * geo.pos / 100 / price);
+      h += `<span>בתיק של ${N(money(pf))} ובמחיר ${N(pxf(price))}: <b>${N(q.toLocaleString("en-US"))}</b> יחידות, ${N(money(q * price))}.</span>`;
+      if (!$("tmQty").dataset.touched) $("tmQty").value = String(q);
+    } else if (!pf) h += `<span class="note">כדי לקבל כמות מוצעת, הזן גודל תיק במסך יומן המסחר.</span>`;
+  } else h += `<span class="note">לקריאה הזו אין גודל פוזיציה.</span>`;
+  if (a.tone !== "good") h += `<span class="note t-warn">קליבר לא המליץ להיכנס. העסקה תירשם ביומן בכל זאת, מקושרת לקריאה.</span>`;
+  box.innerHTML = h; box.hidden = false;
+}
+async function submitTM(e){
+  e.preventDefault();
+  if (TM.busy || !S.db || !TM.mode) return;
+  const m = TM.mode, now = isoLocal(), t = TM.id ? jRows().find(x => x._id === TM.id) : null;
+  const dateOk = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const bad = s => tmMsg(s, "bad");
+  let doc;
+  if (m === "close"){
+    if (!t) return bad("העסקה כבר לא ביומן.");
+    const exit = fnum("tmExit"), xd = fv("tmExitDate"), comm = fnum("tmComm");
+    if (!isNum(exit) || exit <= 0) return bad("כתוב מחיר יציאה.");
+    if (!dateOk(xd)) return bad("בחר תאריך יציאה.");
+    if (t.entryDate && xd < t.entryDate) return bad("תאריך היציאה מוקדם מתאריך הכניסה.");
+    if (Number.isNaN(comm) || (isNum(comm) && comm < 0)) return bad("העמלות צריכות להיות מספר, 0 או יותר.");
+    doc = {exit, exitDate: xd, comm: isNum(comm) ? comm : 0, notes: fv("tmNotes"), status: "closed", updated_at: now};
+  } else {
+    const ticker = fv("tmTicker"), entry = fnum("tmEntry"), qty = fnum("tmQty"), ed = fv("tmEntryDate");
+    const comm = fnum("tmComm"), lv = fnum("tmLev"), exit = m === "enter" ? null : fnum("tmExit"), xd = m === "enter" ? "" : fv("tmExitDate");
+    if (!ticker) return bad("כתוב טיקר.");
+    if (!isNum(qty) || qty <= 0) return bad("כתוב כמות גדולה מאפס.");
+    const keepNoEntry = m === "edit" && t && !isNum(t.entry) && entry === null;
+    if (!keepNoEntry && (!isNum(entry) || entry <= 0)) return bad("כתוב מחיר כניסה.");
+    if (!dateOk(ed)) return bad("בחר תאריך כניסה.");
+    if (Number.isNaN(comm) || (isNum(comm) && comm < 0)) return bad("העמלות צריכות להיות מספר, 0 או יותר.");
+    if (Number.isNaN(lv) || (isNum(lv) && lv < 1)) return bad("המינוף הוא 1 או יותר.");
+    if (Number.isNaN(exit) || (isNum(exit) && exit <= 0)) return bad("מחיר היציאה לא תקין.");
+    if (xd && !dateOk(xd)) return bad("תאריך היציאה לא תקין.");
+    if (xd && !isNum(exit)) return bad("יש תאריך יציאה בלי מחיר יציאה.");
+    if (m === "add" && isNum(exit) && !xd) return bad("לעסקה שכבר נסגרה צריך גם תאריך יציאה.");
+    if (xd && xd < ed) return bad("תאריך היציאה מוקדם מתאריך הכניסה.");
+    doc = {ticker: /^[\x20-\x7e]+$/.test(ticker) ? ticker.toUpperCase() : ticker,
+      dir: $("tmDir").value === "Short" ? "Short" : "Long", cls: CLS[$("tmCls").value] ? $("tmCls").value : "Equity",
+      qty, entry: keepNoEntry ? null : entry, entryDate: ed, exit: isNum(exit) ? exit : null, exitDate: xd || null,
+      comm: isNum(comm) ? comm : 0, notes: fv("tmNotes"), sector: fv("tmSector"), lev: isNum(lv) ? lv : 1,
+      callId: (m === "enter" ? TM.call.id : $("tmCall").value) || null, updated_at: now};
+    doc.status = isNum(doc.exit) ? "closed" : "open";
+  }
+  TM.busy = true; $("tmSave").disabled = true; tmMsg("שומר…");
+  try {
+    if (m === "add" || m === "enter"){
+      const d = new Date(), p = n => String(n).padStart(2, "0");
+      const id = `t-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${Math.random().toString(36).slice(2, 6)}`;
+      Object.assign(doc, {source: m === "enter" ? "app-call" : "app", ccy: "USD", created_at: now});
+      await S.db.collection("journal").doc(id).set(doc);
+    } else await S.db.doc("journal/" + TM.id).update(doc);
+    const done = {add: "העסקה נוספה ליומן.", enter: "העסקה נוספה ליומן, מקושרת לקריאה.", edit: "השינויים נשמרו.", close: "העסקה נסגרה."}[m];
+    closeTM(); toast(done);
+  } catch (err) { tmMsg(writeErr(err), "bad"); }
+  finally { TM.busy = false; $("tmSave").disabled = false; }
+}
+async function delTM(){
+  if (TM.busy || TM.mode !== "edit") return;
+  if (!TM.delArm){ TM.delArm = true; $("tmDel").textContent = "כן, למחוק לצמיתות"; tmMsg("לחיצה נוספת מוחקת את העסקה מהיומן. אי אפשר לבטל.", "warn"); return; }
+  TM.busy = true;
+  try { await S.db.doc("journal/" + TM.id).delete(); closeTM(); toast("העסקה נמחקה מהיומן."); }
+  catch (err) { tmMsg(writeErr(err), "bad"); }
+  finally { TM.busy = false; }
+}
+function pfMsg(t, tone = ""){ const el = $("pfMsg"); el.textContent = t; if (tone) el.dataset.tone = tone; else delete el.dataset.tone; }
+function pfFill(){ const el = $("pfInput"); if (!el.dataset.dirty && document.activeElement !== el) el.value = pfUsd() ? pfUsd().toLocaleString("en-US") : ""; }
+async function submitPf(e){
+  e.preventDefault();
+  if (!S.db) return;
+  const v = Number($("pfInput").value.replace(/[,\s$]/g, ""));
+  if (!isFinite(v) || v <= 0) return pfMsg("כתוב סכום בדולרים, למשל 250,000.", "bad");
+  $("pfBtn").disabled = true;
+  try { await S.db.doc("settings/portfolio").set({usd: Math.round(v), updated_at: isoLocal()}); $("pfInput").dataset.dirty = ""; pfMsg("נשמר.", "ok"); }
+  catch (err) { pfMsg(writeErr(err), "bad"); }
+  finally { $("pfBtn").disabled = !(S.db && S.canWrite !== false); }
+}
+
+/* ── ask Caliber. Since 7.11 one depth: a question becomes a GitHub issue (kind "question", with the
+   call's id), and the cloud engine answers it with fresh research and the scripts (CLOUD-ENGINE.md, 4ב).
+   The instant answers through `sample` went away with claude.ai; the ones saved before stay as history (qa). ── */
+const QA = {open: false, callId: null, busy: false, opener: null};
+function qaRows(id){
+  const now = (S.qa || []).filter(x => x.call_id === id).map(x => ({kind: "now", t: x.created_at, q: x.q, a: x.a, truncated: x.truncated}));
+  const deep = (S.queue || []).filter(x => x.kind === "question" && x.call_id === id)
+    .map(x => ({kind: "deep", t: x.created_at, q: x.text, a: x.result_md, status: x.status, error: x.error, url: x.url, issue: x.issue}));
+  return now.concat(deep).sort((a, b) => String(a.t).localeCompare(String(b.t)));
+}
+function qaMsg(t, tone = ""){ const el = $("qaMsg"); el.textContent = t; if (tone) el.dataset.tone = tone; else delete el.dataset.tone; }
+function qaItem(r){
+  let a = "";
+  if (r.kind === "deep"){
+    const [lbl, tone] = QS[r.status] || [r.status || "", "muted"];
+    if (r.status === "done" && r.a) a = `<div class="md">${md(r.a)}</div>`;
+    else if (r.status === "failed") a = `<p class="note t-bad">${esc(r.error || "המנוע לא הצליח לענות.")}</p>`;
+    else a = `<p class="note"><span class="t-${tone}">${esc(lbl)}</span> · ${r.status === "running" ? "המנוע בענן עובד על זה. התשובה תופיע כאן כשתהיה מוכנה, בדרך כלל תוך 5–15 דקות." : r.status === "cancelled" ? "השאלה בוטלה." : "המנוע מתעורר על השאלה. התשובה תופיע כאן, בדרך כלל תוך 5–15 דקות."}</p>`;
+  } else a = r.a ? `<div class="md">${md(r.a)}</div>` : "";
+  if (r.truncated) a += `<p class="note">התשובה נקטעה באורך.</p>`;
+  const meta = (r.kind === "now" ? "מיידית, מהדוח" : "שאלה") + (r.t ? " · " + esc(stamp(r.t)) : "") + (r.issue ? " · " + ext(r.url, "#" + r.issue) : "");
+  return `<article class="qa-item"><div class="qa-q"><p>${esc(r.q)}</p><span class="qa-meta">${meta}</span></div><div class="qa-a">${a}</div></article>`;
+}
+function qaEmpty(c){
+  const ex = c && c.bucket === "closed" ? ["מה הלקח מהקריאה הזו?", "איזו הנחה נשברה ראשונה?", "האם הסטופ היה במקום הנכון?"]
+    : ["למה זו ההמלצה?", "מה צריך לקרות כדי שזו תהפוך לקנייה?", "איזה שער הכי קרוב להיכשל?"];
+  return `<div class="qa-empty"><p class="prose">שאלה נפתחת כ-issue בריפו ומעירה את המנוע בענן. הוא קורא את הדוח, הרשומה והתחקיר, מריץ מחקר וסקריפטים במחיר של היום, ועונה כאן, בדרך כלל תוך 5–15 דקות, עם התראה לנייד.</p>
+    <div class="chips">${ex.map(x => `<button type="button" class="chip plain qa-ex" data-qa="ex">${esc(x)}</button>`).join("")}</div></div>`;
+}
+function drawQA(){
+  if (!QA.open) return;
+  const c = findCall(QA.callId);
+  $("qaTitle").textContent = `שאל את קליבר${c ? ` · ${c.ticker}` : ""}`;
+  const rows = qaRows(QA.callId);
+  const el = $("qaList"), atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  el.innerHTML = (!rows.length ? qaEmpty(c) : "") + rows.map(qaItem).join("");
+  if (atEnd) el.scrollTop = el.scrollHeight;
+  $("qaDeep").disabled = QA.busy || !(S.db && S.canWrite !== false);
+}
+function openQA(id){
+  if (!findCall(id)) return;
+  if (QA.callId !== id){ $("qaInput").value = ""; qaMsg(""); }
+  Object.assign(QA, {open: true, callId: id, opener: document.activeElement});
+  $("qa").hidden = false; document.body.style.overflow = "hidden";
+  drawQA(); $("qaList").scrollTop = $("qaList").scrollHeight;
+  setTimeout(() => { try { $("qaInput").focus(); } catch (e) {} }, 0);
+}
+function closeQA(){
+  if (!QA.open) return;
+  QA.open = false; $("qa").hidden = true; document.body.style.overflow = "";
+  const o = QA.opener; QA.opener = null;
+  if (o && document.contains(o)) try { o.focus(); } catch (e) {}
+}
+async function askDeep(e){
+  if (e && e.preventDefault) e.preventDefault();
+  if (QA.busy || !QA.callId || !S.db) return;
+  const q = $("qaInput").value.trim(), c = findCall(QA.callId);
+  if (!q){ qaMsg("כתוב שאלה.", "warn"); return; }
+  if (!c) return;
+  if ((S.queue || []).some(x => x.kind === "question" && x.call_id === c.id && x.text === q && (x.status === "pending" || x.status === "running"))){ qaMsg("השאלה הזו כבר בתור.", "warn"); return; }
+  QA.busy = true; drawQA();
+  try {
+    await S.db.collection("queue").doc("new").set({kind: "question", text: q, ticker: c.ticker, call_id: c.id, status: "pending", created_at: isoLocal(), attempts: 0});
+    $("qaInput").value = "";
+    qaMsg("נשלח. המנוע מתעורר על השאלה, והתשובה תופיע כאן עם התראה לנייד.", "ok");
+  } catch (err) {
+    const code = err && err.code;
+    if (code === "forbidden"){ S.canWrite = false; askReady(); }
+    qaMsg(code === "forbidden" ? "השליחה נדחתה: לטוקן אין הרשאת Issues לכתיבה." : `השליחה נכשלה (${code || "שגיאה"}). נסה שוב בעוד רגע.`, "bad");
+  } finally { QA.busy = false; drawQA(); }
+}
+
+/* ── render ── */
+const VIEWS = {home: vHome, call: vCall, journal: vJournal, perf: vPerf, screen: vScreen, feed: vFeed};
+let pending = 0;
+function render(){ if (pending) return; pending = setTimeout(() => { pending = 0; draw(); }, 16); }
+function draw(){
+  const tab = S.route === "call" ? "" : S.route;
+  document.querySelectorAll(".tabs a").forEach(a => { if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  const un = S.events ? S.events.filter(unread).length : 0;
+  const fc = $("feedCnt"); fc.textContent = un; fc.hidden = !un;
+  const m = S.meta;
+  /* Two clocks: the Mac's full sync (meta/sync) and the cloud's daily evaluation (live/<day>),
+     which refreshes the open calls while the Mac is off. Show the cloud's when it is newer. */
+  const lv = S.live && S.live.computed_at, ms = m && m.synced_at;
+  const cloudNewer = !!lv && (!ms || Date.parse(lv) > Date.parse(ms));
+  const ss = $("syncStamp");
+  ss.textContent = S.dbState === "none" ? "לא מחובר לריפו"
+    : cloudNewer ? `עודכן בענן ${stamp(lv)}${ms ? ` · סנכרון מלא ${stamp(ms)}` : ""}`
+    : m ? `עודכן ${stamp(ms)}` : S.dbState === "ok" && m === null ? "המנוע עוד לא כתב נתונים" : "מתחבר לגיטהאב…";
+  ss.title = "המנוע בענן כותב את הנתונים לריפו בסוף כל ריצה: על כל בקשה, ובבדיקה היומית של 07:00. הדף בודק אם יש חדש כל דקה, כשהוא פתוח.";
+  let ban = "";
+  const errs = Object.entries(S.errors);
+  if (errs.length) ban += `<div class="banner">הטעינה מהריפו נכשלה: ${errs.map(([k, c]) => `${esc(k)} (${esc(c)})`).join(", ")}. הדף ינסה שוב בעוד דקה.</div>`;
+  if (m && (m.eval_errors || []).length) ban += `<div class="banner">בסנכרון האחרון לא נשלפו מחירים ל: ${m.eval_errors.map(e => esc(e.ticker)).join(", ")}</div>`;
+  $("banner").innerHTML = ban;
+  for (const k of Object.keys(VIEWS)){
+    const el = $("v-" + k);
+    if (k === S.route && S.dbState !== "none"){ ($(k + "-dyn") || el).innerHTML = VIEWS[k](); el.hidden = false; }
+    else el.hidden = true;
+  }
+  drawQA();
+}
+
+/* ── routing: bare #tokens only (#home, #perf, #screen, #feed, #call-<id>) ── */
+const ID_OK = /^[A-Za-z0-9_\-.~:@+]{1,200}$/;
+function parse(h){
+  h = String(h || "").replace(/^#/, "");
+  try { h = decodeURIComponent(h); } catch (e) {}
+  if (h.startsWith("call-") && ID_OK.test(h.slice(5))) return {route: "call", id: h.slice(5)};
+  return {route: VIEWS[h] && h !== "call" ? h : "home"};
+}
+function apply(r){
+  const moved = r.route !== S.route || r.id !== S.callId;
+  if (QA.open && (r.route !== "call" || r.id !== QA.callId)) closeQA();
+  S.route = r.route;
+  if (r.route === "call") setCall(r.id);
+  draw();
+  if (moved) try { window.scrollTo(0, 0); } catch (e) {}
+}
+function go(h){
+  try { if (location.hash !== "#" + h) history.pushState(null, "", "#" + h); } catch (e) { try { location.hash = h; } catch (_) {} }
+  apply(parse(h));
+}
+function setCall(id){
+  if (S.callId === id && callSubs.length) return;
+  callSubs.forEach(u => { try { u(); } catch (e) {} }); callSubs = [];
+  S.callId = id; S.report = {id, doc: undefined}; S.outcome = {id, doc: undefined};
+  if (!S.db || !ID_OK.test(id)) return;
+  try {
+    callSubs.push(S.db.doc("reports/" + id).onSnapshot(s => { if (S.callId === id){ S.report = {id, doc: s.exists ? s.data() : null}; render(); } }, () => { S.report = {id, doc: null}; render(); }));
+    callSubs.push(S.db.doc("outcomes/" + id).onSnapshot(s => { if (S.callId === id){ S.outcome = {id, doc: s.exists ? s.data() : null}; render(); } }, () => { S.outcome = {id, doc: null}; render(); }));
+  } catch (e) {}
+}
+window.addEventListener("hashchange", () => apply(parse(location.hash)));
+window.addEventListener("popstate", () => apply(parse(location.hash)));
+document.addEventListener("click", e => {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const extA = e.target.closest("a[href]");
+  if (extA && !extA.getAttribute("href").startsWith("#")) return;   // external links open in a new tab
+  const b = e.target.closest("[data-hist],[data-feed],[data-act]");
+  if (b){
+    if (b.dataset.hist){ S.hist = b.dataset.hist; draw(); }
+    else if (b.dataset.feed){ S.feedF = b.dataset.feed; draw(); }
+    else if (b.dataset.act === "markall"){ markAll(); draw(); }
+    else if (b.dataset.act === "cancel"){ b.disabled = true; cancelAsk(b.dataset.q); }
+    return;
+  }
+  const jb = e.target.closest("[data-jact],[data-jsort],[data-jstat],[data-jmonth],[data-jsector]");
+  if (jb){ jClick(jb); return; }
+  const qb = e.target.closest("[data-qa]");
+  if (qb){
+    const k = qb.dataset.qa;
+    if (k === "open") openQA(qb.dataset.c);
+    else if (k === "close") closeQA();
+    else if (k === "ex"){ $("qaInput").value = qb.textContent; $("qaInput").focus(); }
+    return;
+  }
+  const t = e.target.closest("a[href^='#'],[data-href]");
+  if (!t) return;
+  const h = (t.getAttribute("href") || "#" + t.dataset.href).replace(/^#/, "");
+  if (!h) return;
+  e.preventDefault();
+  const evId = t.dataset.ev || (t.closest("[data-ev]") || {}).dataset?.ev;
+  if (evId) markRead(evId);
+  go(h);
+});
+
+/* ── data: subscribe once per document or collection ── */
+$("askForm").addEventListener("submit", submitAsk);
+$("tmForm").addEventListener("submit", submitTM);
+$("tm").addEventListener("click", e => {
+  if (e.target === $("tm")) return closeTM();
+  const b = e.target.closest("[data-tm]");
+  if (b) b.dataset.tm === "del" ? delTM() : closeTM();
+});
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (!$("tm").hidden){ e.preventDefault(); closeTM(); }
+  else if (!$("qa").hidden){ e.preventDefault(); closeQA(); }
+});
+$("qaForm").addEventListener("submit", askDeep);
+$("qa").addEventListener("click", e => { if (e.target === $("qa")) closeQA(); });
+$("qaInput").addEventListener("keydown", e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) askDeep(e); });
+$("tmEntry").addEventListener("input", sizing);
+$("tmQty").addEventListener("input", () => { $("tmQty").dataset.touched = "1"; });
+$("tmTicker").addEventListener("input", () => {
+  if (TM.mode !== "add" && TM.mode !== "edit") return;
+  const tk = fv("tmTicker").toUpperCase();
+  $("tmCall").innerHTML = callOptions(tk, $("tmCall").value);
+  if (!fv("tmSector")){ const s = sectorFor(tk); if (s) $("tmSector").value = s; }
+});
+$("jSearch").addEventListener("input", () => { S.j.q = $("jSearch").value; render(); });
+$("pfForm").addEventListener("submit", submitPf);
+$("pfInput").addEventListener("input", () => { $("pfInput").dataset.dirty = "1"; pfMsg(""); });
+apply(parse(location.hash));
+
+/* ── GitHub as the database (Pages port, 7.11). A claude.ai page cannot reach any outside host, so the
+   app now lives on GitHub Pages and reads and writes the private repo through the REST API, with a
+   fine-grained token its owner pastes once per browser (localStorage, sent to api.github.com only).
+   GHDB keeps the slice of the old db API the screens use (doc/collection, onSnapshot, set, update,
+   delete), so the screens did not change. Where things live in the repo:
+     app/data/<coll>.json        written by the engine: {docId: doc} for each collection
+     app/data/reports/<id>.json  and outcomes/<id>.json: one file per doc, read when a call opens
+     app/user/journal.json       and settings.json: written by this page
+     queue/*                     issues labelled caliber-request, merged with app/data/queue.json (the engine's results)
+     engine/status               app/data/engine.json, plus the run lock relay/state/worker-lock.json while a run works
+   Reads pin one commit (the branch head) and fetch only the files whose blob changed. ── */
+const GH = {
+  owner: "2000liad", repo: "caliber-relay", branch: "main", key: "caliber.gh.token",
+  api: /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? location.origin + "/gh" : "https://api.github.com"
+};
+const REPO = `/repos/${GH.owner}/${GH.repo}`;
+const DATA = "app/data", USER = "app/user", LOCK = "relay/state/worker-lock.json";
+const SPLIT = new Set(["reports", "outcomes"]), USER_COLLS = new Set(["journal", "settings"]);
+const ghToken = () => { try { return localStorage.getItem(GH.key) || ""; } catch (e) { return ""; } };
+const ghErr = (code, status) => Object.assign(new Error(code), {code, status});
+const b64dec = s => new TextDecoder().decode(Uint8Array.from(atob(String(s || "").replace(/\s/g, "")), c => c.charCodeAt(0)));
+function b64enc(s){
+  const b = new TextEncoder().encode(s); let o = "";
+  for (let i = 0; i < b.length; i += 0x8000) o += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+  return btoa(o);
+}
+const etags = new Map();   // url -> [etag, body]: a 304 costs nothing against the rate limit
+async function gh(path, opts = {}){
+  const url = GH.api + path, method = opts.method || "GET", acc = opts.accept || "application/vnd.github+json";
+  const headers = {"Authorization": "Bearer " + ghToken(), "Accept": acc, "X-GitHub-Api-Version": "2022-11-28"};
+  const cond = method === "GET" && opts.cond;
+  if (cond && etags.has(url)) headers["If-None-Match"] = etags.get(url)[0];
+  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+  let r;
+  try { r = await fetch(url, {method, headers, cache: "no-store", body: opts.body === undefined ? undefined : JSON.stringify(opts.body)}); }
+  catch (e) { throw ghErr("network", 0); }
+  if (r.status === 304 && cond && etags.has(url)) return {data: etags.get(url)[1], changed: false};
+  if (r.status === 401) throw ghErr("unauthorized", 401);
+  if (r.status === 403 || r.status === 429) throw ghErr(r.headers.get("x-ratelimit-remaining") === "0" || r.status === 429 ? "rate_limited" : "forbidden", r.status);
+  if (r.status === 404) throw ghErr("not_found", 404);
+  if (r.status === 409 || (r.status === 422 && method === "PUT")) throw ghErr("conflict", r.status);
+  if (!r.ok) throw ghErr("http_" + r.status, r.status);
+  const data = r.status === 204 ? null : /raw|sha/.test(acc) ? await r.text() : await r.json();
+  if (cond){ const et = r.headers.get("ETag"); if (et) etags.set(url, [et, data]); }
+  return {data, changed: true};
+}
+
+const GHDB = (() => {
+  let head = null, issues = [], issuesV = 0, chain = Promise.resolve();
+  const dirs = new Map(), blobs = new Map(), subs = new Set();
+  async function listDir(dir){             // name -> blob sha, at the pinned head
+    const k = dir + "@" + head;
+    if (!dirs.has(k)) dirs.set(k, (async () => {
+      const m = new Map();
+      try { const {data} = await gh(`${REPO}/contents/${dir}?ref=${head}`); if (Array.isArray(data)) for (const e of data) if (e.type === "file") m.set(e.name, e.sha); }
+      catch (e) { if (e.code !== "not_found"){ dirs.delete(k); throw e; } }
+      return m;
+    })());
+    return dirs.get(k);
+  }
+  async function readFile(path){           // {sha, json}; sha null when the file is missing
+    const i = path.lastIndexOf("/"), sha = (await listDir(path.slice(0, i))).get(path.slice(i + 1)) || null;
+    if (!sha) return {sha: null, json: null};
+    if (!blobs.has(sha)) blobs.set(sha, gh(`${REPO}/git/blobs/${sha}`, {accept: "application/vnd.github.raw+json"}).then(r => JSON.parse(r.data)).catch(e => { blobs.delete(sha); throw e; }));
+    return {sha, json: await blobs.get(sha)};
+  }
+  const fileOf = coll => `${USER_COLLS.has(coll) ? USER : DATA}/${coll}.json`;
+  const meta = body => { const m = /```json\s*([\s\S]*?)```/.exec(body || ""); try { const j = m && JSON.parse(m[1]); return j && typeof j === "object" ? j : {}; } catch (e) { return {}; } };
+  function issueDoc(i){
+    const m = meta(i.body), L = new Set((i.labels || []).map(l => typeof l === "string" ? l : l.name));
+    return {kind: m.kind || "request", text: m.text || i.title, ticker: m.ticker || null, call_id: m.call_id || null,
+      created_at: m.created_at || i.created_at, issue: i.number, url: i.html_url,
+      status: i.state === "open" ? (L.has("running") ? "running" : "pending")
+        : L.has("failed") ? "failed" : i.state_reason === "not_planned" ? "cancelled" : "done",
+      finished_at: i.closed_at || null};
+  }
+  /* The queue: every request issue, with the engine's record of it (status, summary, answer) on top.
+     Old requests from the claude.ai days live only in queue.json. */
+  async function queueDocs(){
+    const {sha, json} = await readFile(`${DATA}/queue.json`), res = json || {}, out = new Map(Object.entries(res));
+    for (const i of issues){ const id = "gh-" + i.number, r = res[id]; out.set(id, Object.assign(issueDoc(i), r || {}, {issue: i.number, url: i.html_url})); }
+    return {key: (sha || "-") + "|" + issuesV, val: [...out.entries()]};
+  }
+  async function resolve(s){
+    if (s.kind === "doc"){
+      if (s.coll === "engine" && s.id === "status"){
+        const [e, l] = await Promise.all([readFile(`${DATA}/engine.json`), readFile(LOCK)]);
+        const st = e.json && e.json.status, lk = l.json;
+        return {key: e.sha + "|" + l.sha, val: !st && !lk ? null : Object.assign({}, st || {}, {running_since: lk ? lk.running_since || null : null, current: lk ? lk.current || null : null})};
+      }
+      if (SPLIT.has(s.coll)){ const f = await readFile(`${DATA}/${s.coll}/${s.id}.json`); return {key: f.sha, val: f.json}; }
+      const f = await readFile(fileOf(s.coll));
+      return {key: f.sha, val: f.json && f.json[s.id] !== undefined ? f.json[s.id] : null};
+    }
+    let r;
+    if (s.coll === "queue") r = await queueDocs();
+    else { const f = await readFile(fileOf(s.coll)); r = {key: f.sha, val: Object.entries(f.json || {})}; }
+    let rows = r.val;
+    if (s.order){ const {f, dir} = s.order, sg = dir === "desc" ? -1 : 1; rows = rows.slice().sort((a, b) => String(a[1][f] ?? "").localeCompare(String(b[1][f] ?? "")) * sg); }
+    return {key: r.key, val: rows.slice(0, s.lim)};
+  }
+  async function deliver(s){
+    if (!head) return;
+    try {
+      const {key, val} = await resolve(s);
+      if (!subs.has(s) || key === s.key) return;
+      s.key = key;
+      s.cb(s.kind === "doc" ? {exists: val != null, data: () => val}
+        : {docs: val.map(([id, d]) => ({id, data: () => d}))});
+    } catch (e) { if (subs.has(s) && s.err) s.err(e); }
+  }
+  const deliverAll = () => Promise.all([...subs].map(deliver));
+  function sub(s){ subs.add(s); deliver(s); return () => { subs.delete(s); }; }
+  function moveHead(sha){ if (sha && sha !== head){ head = sha; for (const k of dirs.keys()) if (!k.endsWith("@" + sha)) dirs.delete(k); return true; } return false; }
+  async function pollIssues(){
+    const {data, changed} = await gh(`${REPO}/issues?labels=caliber-request&state=all&per_page=60&sort=created&direction=desc`, {cond: true});
+    if (changed){ issues = (data || []).filter(i => !i.pull_request); issuesV++; }
+    return changed;
+  }
+  /* One check: the branch head (a 304 when nothing moved) and the request issues. Serialised. */
+  function poll(){
+    chain = chain.catch(() => {}).then(async () => {
+      const [h, ic] = await Promise.all([gh(`${REPO}/commits/${GH.branch}`, {accept: "application/vnd.github.sha", cond: true}), pollIssues()]);
+      if (moveHead(String(h.data).trim()) || ic) await deliverAll();
+    });
+    return chain;
+  }
+  /* Writes. The page owns app/user/*.json (read-modify-write on the file's sha, three tries on a
+     conflict) and the request issues. Everything under app/data is the engine's. */
+  async function writeUser(coll, id, op, v){
+    const path = fileOf(coll);
+    for (let n = 0; ; n++){
+      let cur = {}, sha;
+      try { const {data} = await gh(`${REPO}/contents/${path}?ref=${GH.branch}`); sha = data.sha; cur = JSON.parse(b64dec(data.content)) || {}; }
+      catch (e) { if (e.code !== "not_found") throw e; }
+      if (op === "update" && !cur[id]) throw ghErr("not_found", 404);
+      if (op === "delete") delete cur[id];
+      else cur[id] = op === "update" ? Object.assign({}, cur[id], v) : v;
+      // sorted keys, indent 1: the same text Python's json.dump(sort_keys=True, indent=1) writes, so diffs stay small
+      const sorted = x => Array.isArray(x) ? x.map(sorted) : x && typeof x === "object" ? Object.fromEntries(Object.keys(x).sort().map(k => [k, sorted(x[k])])) : x;
+      const text = JSON.stringify(sorted(cur), null, 1) + "\n";
+      try {
+        const {data} = await gh(`${REPO}/contents/${path}`, {method: "PUT", body: {message: `app: ${coll} ${op} ${id}`, content: b64enc(text), branch: GH.branch, ...(sha ? {sha} : {})}});
+        blobs.set(data.content.sha, Promise.resolve(JSON.parse(text)));
+        moveHead(data.commit.sha); await deliverAll(); return;
+      } catch (e) { if (e.code !== "conflict" || n >= 2) throw e; }
+    }
+  }
+  async function writeQueue(id, op, v){
+    if (op === "set"){
+      const m = {kind: v.kind, text: v.text, ticker: v.ticker || null, call_id: v.call_id || null, created_at: v.created_at};
+      const title = v.kind === "ticker" ? v.ticker : v.kind === "question" ? `שאלה על ${v.ticker || "קריאה"}: ${v.text.slice(0, 70)}` : v.text.slice(0, 90);
+      const body = `${v.text}\n\n<!-- caliber-request: the engine reads the block below -->\n\`\`\`json\n${JSON.stringify(m, null, 1)}\n\`\`\`\n`;
+      const {data} = await gh(`${REPO}/issues`, {method: "POST", body: {title, body, labels: ["caliber-request"]}});
+      issues = [data].concat(issues.filter(i => i.number !== data.number)); issuesV++;
+      await deliverAll(); return;
+    }
+    const num = /^gh-(\d+)$/.exec(id);
+    if (op === "update" && v.status === "cancelled" && num){
+      const {data} = await gh(`${REPO}/issues/${num[1]}`, {method: "PATCH", body: {state: "closed", state_reason: "not_planned"}});
+      issues = issues.map(i => i.number === data.number ? data : i); issuesV++;
+      await deliverAll(); return;
+    }
+    throw ghErr("forbidden", 403);
+  }
+  function write(coll, id, op, v){
+    if (coll === "queue") return writeQueue(id, op, v);
+    if (USER_COLLS.has(coll)) return writeUser(coll, id, op, v);
+    return Promise.reject(ghErr("forbidden", 403));
+  }
+  const ref = path => { const [coll, id] = path.split("/"); return {
+    onSnapshot: (cb, err) => sub({kind: "doc", coll, id, cb, err}),
+    set: v => write(coll, id, "set", v), update: v => write(coll, id, "update", v), delete: () => write(coll, id, "delete")}; };
+  const query = (coll, lim = Infinity, order = null) => ({
+    limit: n => query(coll, n, order), orderBy: (f, dir = "asc") => query(coll, lim, {f, dir}),
+    doc: id => ref(coll + "/" + id), onSnapshot: (cb, err) => sub({kind: "coll", coll, lim, order, cb, err})});
+  return {doc: ref, collection: c => query(c), poll, check: () => gh(REPO)};
+})();
+
+/* ── connecting: no token, or one GitHub refused, shows the connect pane instead of the screens ── */
+function ghcMsg(t, tone = ""){ const el = $("ghcMsg"); el.textContent = t; if (tone) el.dataset.tone = tone; else delete el.dataset.tone; }
+function showConnect(msg, tone){
+  S.db = null; S.dbState = "none"; $("ghConnect").hidden = false; $("ghOut").hidden = !ghToken();
+  if (msg) ghcMsg(msg, tone);
+  askReady(); render();
+}
+const WHY = {unauthorized: "גיטהאב דחה את הטוקן: הוא לא תקף, או שפג תוקפו. צור חדש והדבק כאן.",
+  not_found: "הטוקן לא רואה את הריפו caliber-relay. ודא שבחרת אותו תחת Repository access.",
+  forbidden: "לטוקן אין הרשאה לקרוא את הריפו. ודא ש-Contents ו-Issues מוגדרים ל-Read and write.",
+  rate_limited: "גיטהאב מגביל כרגע את הקצב. נסה שוב בעוד כמה דקות.",
+  network: "אין חיבור לגיטהאב כרגע. בדוק את הרשת ונסה שוב."};
+let pollT = 0;
+function schedulePoll(){
+  clearTimeout(pollT);
+  if (!S.db || document.hidden) return;
+  const busy = (S.queue || []).some(q => q.status === "pending" || q.status === "running");
+  pollT = setTimeout(tick, busy ? 20000 : 60000);
+}
+async function tick(){
+  if (!S.db) return;
+  try { await GHDB.poll(); if (S.errors.github){ delete S.errors.github; render(); } }
+  catch (e) {
+    if (e.code === "unauthorized") return showConnect(WHY.unauthorized, "bad");
+    S.errors.github = e.code || "error"; render();
+  }
+  schedulePoll();
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && S.db) tick(); else clearTimeout(pollT); });
+async function connect(){
+  if (!ghToken()) return showConnect("");
+  try { await GHDB.check(); }
+  catch (e) { return showConnect(WHY[e.code] || `החיבור נכשל (${e.code}).`, "bad"); }
+  $("ghConnect").hidden = true; $("ghOut").hidden = false;
+  const db = GHDB;
+  S.db = db; S.dbState = "ok";
+  askReady(); if (S.canWrite !== false) askMsg(DEFAULT_HINT());
+  const ok = (k, f) => x => { if (S.errors[k]){ delete S.errors[k]; } f(x); };
+  const fail = k => e => { S.errors[k] = (e && e.code) || "error"; render(); };
+  const one = (path, key) => db.doc(path).onSnapshot(ok(path, s => { S[key] = s.exists ? s.data() : null; render(); }), fail(path));
+  one("meta/sync", "meta");
+  one("stats/summary", "stats");
+  one("screen/current", "screen");
+  db.collection("calls").limit(1000).onSnapshot(ok("calls", q => { S.callsRaw = q.docs.map(d => Object.assign({_id: d.id}, d.data())); mergeLive(); render(); }), fail("calls"));
+  db.collection("live").limit(20).onSnapshot(q => {
+    S.live = q.docs.map(d => d.data()).sort((a, b) => String(b.day).localeCompare(String(a.day)))[0] || null; mergeLive(); render();
+  }, () => {});
+  /* The cloud's copy of an event (live-<id>) gives way to the ledger's own one when it arrives. */
+  db.collection("events").orderBy("date", "desc").limit(500).onSnapshot(ok("events", q => {
+    const all = q.docs.map(d => Object.assign({_id: d.id}, d.data())), ids = new Set(all.map(e => e._id));
+    S.events = all.filter(e => !(e._id.startsWith("live-") && ids.has(e._id.slice(5)))); initSeen(); render();
+  }), fail("events"));
+  // the engine writes its status at the end of every run; the lock says it is working right now
+  db.doc("engine/status").onSnapshot(s => { S.engine = s.exists ? s.data() : null; render(); }, () => {});
+  db.collection("queue").limit(200).onSnapshot(q => { S.queue = q.docs.map(d => Object.assign({_id: d.id}, d.data())); render(); schedulePoll(); }, () => {});
+  // the trading journal and the portfolio size: written here, read by the cloud engine
+  db.collection("journal").limit(1000).onSnapshot(ok("journal", q => { S.journal = q.docs.map(d => Object.assign({_id: d.id}, d.data())); render(); }), fail("journal"));
+  db.doc("settings/portfolio").onSnapshot(s => { S.portfolio = s.exists ? s.data() : null; pfFill(); render(); }, () => {});
+  // last closes of the open positions: the engine's sync writes them, the page only reads
+  db.doc("positions/prices").onSnapshot(s => { S.px = s.exists ? s.data() : null; render(); }, () => { S.px = null; render(); });
+  // instant answers saved in the claude.ai days; questions since then live in queue/ (kind "question")
+  db.collection("qa").limit(500).onSnapshot(q => { S.qa = q.docs.map(d => Object.assign({_id: d.id}, d.data())); render(); }, () => {});
+  if (S.route === "call" && S.callId){ const id = S.callId; S.callId = null; setCall(id); }
+  render();
+  tick();
+}
+$("ghcForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const t = $("ghcInput").value.trim();
+  if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && !/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(t)){ ghcMsg("זה לא נראה כמו טוקן של גיטהאב (מתחיל ב-github_pat_).", "warn"); return; }
+  try { localStorage.setItem(GH.key, t); } catch (err) { ghcMsg("הדפדפן לא מאפשר לשמור את הטוקן (גלישה פרטית?).", "bad"); return; }
+  $("ghcInput").value = ""; ghcMsg("מתחבר…");
+  connect();
+});
+$("ghOut").addEventListener("click", () => {
+  try { localStorage.removeItem(GH.key); } catch (e) {}
+  location.reload();
+});
+connect();
+})();
+</script>
+
+</body></html>
