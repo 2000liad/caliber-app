@@ -79,20 +79,20 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid 
 
 /* ── page frame ── */
 .wrap{max-width:1200px;margin-inline:auto;padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:20px}
-.view{display:grid;gap:16px;min-width:0}
+.view{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0}
 .vh{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
 .vh h1{font-size:var(--fs-lg);font-weight:600}
 .vh p{color:var(--muted);font-size:var(--fs-sm)}
 .cols{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:16px;align-items:start}
 .cols.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-.col{display:grid;gap:16px;min-width:0}
+.col{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0}
 @media (max-width:900px){.cols,.cols.even{grid-template-columns:minmax(0,1fr)}}
 
 .pane{background:var(--pane);border:1px solid var(--line);border-radius:var(--r);min-width:0}
 .ph{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 10px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--pane-2);border-radius:var(--r) var(--r) 0 0}
 .ph h2{font-size:var(--fs-sm);font-weight:600}
 .ph .aux{font-size:var(--fs-xs);color:var(--muted)}
-.pb{padding:12px 14px;display:grid;gap:12px;min-width:0}
+.pb{padding:12px 14px;display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0}
 .pb.flush{padding:0;gap:0}
 .note{font-size:var(--fs-xs);color:var(--muted)}
 .empty{color:var(--muted);font-size:var(--fs-sm);padding:4px 0}
@@ -273,6 +273,7 @@ table.gates tr.is-fail td:not(.gs){color:var(--fg)}
 .st{font-size:var(--fs-xs);font-weight:600;display:inline-flex;align-items:center;gap:5px}
 .st::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips .chip{white-space:normal;max-width:100%}
 
 .prose{font-size:var(--fs-sm);color:var(--fg-2);line-height:1.75;max-width:78ch}
 .prose b{color:var(--fg)}
@@ -305,10 +306,13 @@ details.pm>summary{cursor:pointer;font-size:var(--fs-sm);font-weight:600;color:v
 details.pm>summary::-webkit-details-marker{display:none}
 details.pm>summary::after{content:" ▾";font-size:var(--fs-2xs)}
 details.pm[open]>summary::after{content:" ▴"}
-.md{font-size:var(--fs-sm);color:var(--fg-2);line-height:1.75;display:grid;gap:10px;max-width:84ch;margin-top:8px}
+/* one column that may shrink below its content: a wide table in a report scrolls inside its .tbl instead of
+   stretching every grid around it past the phone's width (7.11: the engine's reports carry wide tables) */
+.md{font-size:var(--fs-sm);color:var(--fg-2);line-height:1.75;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;max-width:84ch;margin-top:8px;overflow-wrap:anywhere}
+details.pm{min-width:0}
 .md .mh{color:var(--fg);font-weight:600}
 .md h3.mh{font-size:var(--fs-lg)} .md h4.mh{font-size:var(--fs-md);margin-top:6px} .md h5.mh,.md h6.mh{font-size:var(--fs-sm)}
-.md ul,.md ol{margin:0;padding-inline-start:1.3em;display:grid;gap:4px}
+.md ul,.md ol{margin:0;padding-inline-start:1.3em;display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
 .md code{font-family:var(--font-mono);font-size:.92em;background:var(--sunk);border:1px solid var(--line);border-radius:3px;padding:0 4px;direction:ltr;unicode-bidi:isolate}
 .md pre{font-family:var(--font-mono);font-size:var(--fs-xs);background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:10px;overflow-x:auto;direction:ltr;margin:0}
 .md table td,.md table th{white-space:normal}
