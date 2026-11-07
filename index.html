@@ -191,6 +191,22 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid 
 .qi .qm{grid-column:2/-1;font-size:var(--fs-2xs);color:var(--muted);display:flex;flex-wrap:wrap;gap:3px 10px}
 .qi .qx{grid-column:2/-1;font-size:var(--fs-xs);color:var(--fg-2);overflow-wrap:anywhere}
 .qi .qx a{color:var(--accent);text-decoration:none}
+.ask .btn.scan{font-size:var(--fs-sm);padding:9px 14px}
+
+/* ── the scan (7.11): directions, each with its candidates and the quick label ── */
+.sc-h{padding:12px 14px;display:grid;gap:8px;font-size:var(--fs-sm)}
+.sc-h p,.sc-d p{margin:0}
+.sc-d{padding:12px 14px;border-top:1px solid var(--line);display:grid;gap:6px}
+.sc-d h3{margin:0;font-size:var(--fs-md)}
+.sc-d > p{font-size:var(--fs-sm);color:var(--fg-2)}
+.sc-d > p.sc-src{font-size:var(--fs-2xs)}
+.sc-t{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:3px 10px;align-items:baseline;padding:7px 0 2px;border-top:1px dashed var(--line)}
+.sc-t .tk{font-family:var(--font-mono);font-weight:600;direction:ltr;unicode-bidi:isolate}
+.sc-t .sc-n{font-size:var(--fs-xs);color:var(--muted);overflow-wrap:anywhere}
+.sc-t .sc-m{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 10px;font-size:var(--fs-2xs);color:var(--muted);align-items:center}
+.sc-t .sc-m .chip{white-space:normal}
+.sc-t .sc-w{grid-column:1/-1;font-size:var(--fs-xs);color:var(--fg-2);overflow-wrap:anywhere}
+.sc-foot{padding:10px 14px;border-top:1px solid var(--line);font-size:var(--fs-2xs);color:var(--muted);margin:0}
 
 /* ── tables ── */
 .tbl{overflow-x:auto;min-width:0;position:relative}
@@ -516,10 +532,11 @@ footer{font-size:var(--fs-xs);color:var(--muted);border-top:1px solid var(--line
     <div class="vh"><h1>בית</h1><p>שלח טיקר לקליבר, ועקוב אחרי הקריאות הפתוחות ומה שקרה לאחרונה.</p></div>
     <section class="pane">
       <form class="ask" id="askForm" autocomplete="off" novalidate>
-        <label for="askInput">טיקר או בקשה</label>
+        <label for="askInput">טיקר, בקשה, או נושא לסריקה</label>
         <div class="ask-row">
           <input id="askInput" name="ask" maxlength="300" dir="auto" placeholder="NVDA, או: תבדוק שוב את IREN" disabled>
           <button type="submit" class="btn primary" id="askBtn" disabled>שלח לקליבר</button>
+          <button type="button" class="btn scan" id="scanBtn" disabled>סרוק את השוק</button>
         </div>
         <p class="askmsg" id="askMsg" aria-live="polite">מתחבר לגיטהאב…</p>
       </form>
@@ -672,7 +689,7 @@ const FEED = {
   big_move:["תנועה חריגה","move"], note:["חדשות שנבדקו","move"], entry_zone_live:["אזור כניסה התמלא","move"],
   invalidation_breached:["רמת ביטול התזה נפרצה","bad"], stop_hit:["נעצרה בסטופ","bad"], target_hit:["נגעה ביעד","good"],
   closed:["נסגרה","call"], reassess_due:["מועד בדיקה חוזרת","move"], assumption_due:["הנחה הגיעה למועדה","move"],
-  answer_ready:["תשובה מוכנה","call"], engine_error:["שגיאת מנוע","bad"]
+  answer_ready:["תשובה מוכנה","call"], scan_ready:["סריקה מוכנה","call"], engine_error:["שגיאת מנוע","bad"]
 };
 const QS = {pending:["ממתין","info","…"], running:["רץ עכשיו","acc","▶"], done:["מוכן","ok","✔"], failed:["נכשל","bad","✘"], cancelled:["בוטל","muted","–"]};
 const TONE = {good:"ok", bad:"bad", move:"warn", call:"info"};
@@ -994,6 +1011,7 @@ function vHome(){
     const open = S.calls.filter(c => c.bucket === "open").sort((a, b) => String(a.deadline).localeCompare(String(b.deadline)));
     main = pane("קריאות פתוחות", open.length ? open.map(c => ocRow(c, T)).join("") : `<p class="empty" style="padding:12px 14px">אין קריאות פתוחות.</p>`, `${open.length} · לפי דדליין`, "flush");
   }
+  main = scanPane() + main;
   let side = queuePane();
   if (!S.events) side += pane("עדכונים אחרונים", loading("את העדכונים"));
   else {
@@ -1048,20 +1066,22 @@ function queuePane(){
   if (!items.length) return pane("בקשות", `<p class="empty" style="padding:12px 14px">עוד לא נשלחה בקשה. הקלד טיקר בתיבה למעלה.</p>`, "", "flush");
   const body = items.map(q => {
     const [lbl, tone, g] = QS[q.status] || [q.status, "muted", "·"];
-    const what = q.kind === "ticker" ? `<span class="tk">${esc(q.ticker || q.text)}</span>` : esc(q.text);
+    const what = q.kind === "ticker" ? `<span class="tk">${esc(q.ticker || q.text)}</span>` : q.kind === "scan" ? `סריקה: ${esc(q.text)}` : esc(q.text);
+    const eta = q.kind === "scan" ? SCAN_ETA : ETA;
     let x = "";
     if (q.status === "done"){
       if (q.summary) x += esc(q.summary);
       if (q.call_id) x += ` <a href="#call-${esc(q.call_id)}">לקריאה ←</a>`;
-      if (q.result_md) x += `<details class="pm"><summary>התשובה</summary><div class="md">${md(q.result_md)}</div></details>`;
+      if (q.scan && q === latestScan()) x += ` הכיוונים למעלה, בראש העמוד.`;
+      else if (q.result_md) x += `<details class="pm"><summary>התשובה</summary><div class="md">${md(q.result_md)}</div></details>`;
     } else if (q.status === "failed" && q.error) x = `<span class="t-bad">${esc(q.error)}</span>`;
-    else if (q.status === "running") x = `המנוע התחיל לעבוד על זה ${esc(ago(q.started_at || q.created_at))}. ${ETA}.`;
-    else if (q.status === "pending") x = `ממתין שהמנוע יתעורר. ${ETA}.`;
+    else if (q.status === "running") x = `המנוע התחיל לעבוד על זה ${esc(ago(q.started_at || q.created_at))}. ${eta}.`;
+    else if (q.status === "pending") x = `ממתין שהמנוע יתעורר. ${eta}.`;
     const when = q.status === "done" || q.status === "failed" ? (q.finished_at ? `הסתיים ${ago(q.finished_at)}` : "") : `נשלח ${ago(q.created_at)}`;
     return `<div class="qi"><span class="t-${tone}" aria-hidden="true">${g}</span>
       <span class="qt">${what}</span>
       ${q.status === "pending" && q.issue ? `<button type="button" class="btn sm" data-act="cancel" data-q="${esc(q._id)}">בטל</button>` : `<span></span>`}
-      <span class="qm"><span class="t-${tone}">${lbl}</span>${when ? `<span>${esc(when)}</span>` : ""}${q.kind === "request" ? "<span>בקשה חופשית</span>" : q.kind === "question" ? `<span>שאלה על ${esc(q.ticker || "קריאה")}</span>` : ""}${q.issue ? ext(q.url, "#" + q.issue) : ""}</span>
+      <span class="qm"><span class="t-${tone}">${lbl}</span>${when ? `<span>${esc(when)}</span>` : ""}${q.kind === "request" ? "<span>בקשה חופשית</span>" : q.kind === "scan" ? "<span>סריקת שוק</span>" : q.kind === "question" ? `<span>שאלה על ${esc(q.ticker || "קריאה")}</span>` : ""}${q.issue ? ext(q.url, "#" + q.issue) : ""}</span>
       ${x ? `<div class="qx">${x}</div>` : ""}</div>`;
   }).join("");
   return pane("בקשות", body, pend ? `${pend} ממתינות` : "", "flush");
@@ -1070,12 +1090,12 @@ let askBusy = false;
 function askMsg(text, tone = ""){ const el = $("askMsg"); el.textContent = text; if (tone) el.dataset.tone = tone; else delete el.dataset.tone; }
 function askReady(){
   const ok = S.dbState === "ok" && S.canWrite !== false;
-  $("askInput").disabled = !ok; $("askBtn").disabled = !ok || askBusy;
+  $("askInput").disabled = !ok; $("askBtn").disabled = !ok || askBusy; $("scanBtn").disabled = !ok || askBusy;
   ["jAdd", "pfInput", "pfBtn"].forEach(id => { $(id).disabled = !ok; });
   if (S.dbState === "none") askMsg("אין חיבור לריפו, אז אי אפשר לשלוח. התחבר למעלה.", "bad");
   else if (S.canWrite === false) askMsg("לטוקן הזה אין הרשאת כתיבה לריפו (Contents ו-Issues).", "warn");
 }
-const DEFAULT_HINT = () => `המנוע בענן מתעורר על כל בקשה, גם כשהמחשב כבוי. ${ETA}, ותגיע התראה לנייד כשהוא מוכן.`;
+const DEFAULT_HINT = () => `המנוע בענן מתעורר על כל בקשה, גם כשהמחשב כבוי. ${ETA}, ותגיע התראה לנייד כשהוא מוכן. "סרוק את השוק" מחזיר כיוונים ומניות לבחור מהן.`;
 async function submitAsk(e){
   e.preventDefault();
   if (askBusy) return;
@@ -1087,19 +1107,70 @@ async function submitAsk(e){
   const ticker = isTicker ? t.toUpperCase() : null;
   const dup = (S.queue || []).find(q => (q.status === "pending" || q.status === "running") && (ticker ? q.ticker === ticker : q.text === raw));
   if (dup){ askMsg(`${ticker || "הבקשה הזו"} כבר בתור.`, "warn"); return; }
+  if (await enqueue({kind: isTicker ? "ticker" : "request", text: isTicker ? ticker : raw, ticker},
+                    `נשלח: ${isTicker ? ticker : "הבקשה"}. המנוע מתעורר עליה עכשיו. ${ETA}, ותגיע התראה לנייד.`)) $("askInput").value = "";
+}
+async function enqueue(doc, sent){
   const d = new Date(), p = n => String(n).padStart(2, "0");
   const id = `q-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${Math.random().toString(36).slice(2, 6)}`;
-  const doc = {kind: isTicker ? "ticker" : "request", text: isTicker ? ticker : raw, ticker, status: "pending", created_at: isoLocal(d), attempts: 0};
   askBusy = true; askReady();
   try {
-    await S.db.collection("queue").doc(id).set(doc);
-    $("askInput").value = "";
-    askMsg(`נשלח: ${isTicker ? ticker : "הבקשה"}. המנוע מתעורר עליה עכשיו. ${ETA}, ותגיע התראה לנייד.`, "ok");
+    await S.db.collection("queue").doc(id).set(Object.assign({}, doc, {status: "pending", created_at: isoLocal(d), attempts: 0}));
+    askMsg(sent, "ok");
+    return true;
   } catch (err) {
     const code = err && err.code;
     if (code === "forbidden"){ S.canWrite = false; askMsg("השליחה נדחתה: לטוקן אין הרשאת Issues לכתיבה.", "bad"); }
     else askMsg(`השליחה נכשלה (${code || "שגיאה"}). נסה שוב בעוד רגע.`, "bad");
+    return false;
   } finally { askBusy = false; askReady(); }
+}
+/* The scan (7.11): the box's text, if any, is the focus; empty means the whole market. */
+async function submitScan(){
+  if (askBusy || !S.db) return;
+  const focus = $("askInput").value.trim() || "כל השוק";
+  if ((S.queue || []).some(q => q.kind === "scan" && (q.status === "pending" || q.status === "running"))){ askMsg("סריקה כבר בתור.", "warn"); return; }
+  if (await enqueue({kind: "scan", text: focus, ticker: null}, `נשלחה סריקה: ${focus}. ${SCAN_ETA}, ותגיע התראה לנייד.`)) $("askInput").value = "";
+}
+async function requestFromScan(t, btn){
+  if (!S.db) return;
+  if ((S.queue || []).some(q => (q.status === "pending" || q.status === "running") && q.ticker === t)){ askMsg(`${t} כבר בתור.`, "warn"); return; }
+  if (!await enqueue({kind: "ticker", text: t, ticker: t}, `נשלח: ${t}, מהסריקה. ${ETA}, ותגיע התראה לנייד.`) && btn) btn.disabled = false;
+}
+const SCAN_ETA = "סריקה מוכנה בדרך כלל תוך 15–25 דקות";
+const SCAN_TONE = {pass: "t-ok", edge: "t-ok", fix: "t-info", g10: "t-bad", g9: "t-bad", br: "t-warn", error: "t-muted"};
+const signed = x => (x > 0 ? "+" : "") + x.toFixed(1);
+function latestScan(){
+  return (S.queue || []).filter(q => q.status === "done" && q.scan)
+    .sort((a, b) => Date.parse(b.finished_at || b.created_at) - Date.parse(a.finished_at || a.created_at))[0] || null;
+}
+function scanTicker(t){
+  const open = (S.calls || []).find(c => c.bucket === "open" && c.ticker === t.ticker);
+  const busy = (S.queue || []).some(q => q.ticker === t.ticker && (q.status === "pending" || q.status === "running"));
+  const act = open ? `<a class="more" href="#call-${esc(open.id)}">קריאה פתוחה ←</a>`
+    : busy ? `<span class="chip t-info">בתור</span>`
+    : `<button type="button" class="btn sm" data-act="scanreq" data-t="${esc(t.ticker)}"${S.dbState === "ok" && S.canWrite !== false ? "" : " disabled"}>דוח מלא</button>`;
+  const fund = t.fund ? `${esc(t.fund)}${isNum(t.lag50) ? ` ${N(signed(t.lag50))} מול SPY` : ""}` : "";
+  return `<div class="sc-t"><span class="tk">${esc(t.ticker)}</span><span class="sc-n">${esc(t.name || "")}</span>${act}
+    <span class="sc-m"><span class="chip ${SCAN_TONE[t.label] || "t-muted"}">${esc(t.label_he || t.label)}</span>${fund ? `<span>${fund}</span>` : ""}</span>
+    ${t.why ? `<span class="sc-w">${esc(t.why)}${t.source ? " · " + ext(t.source, "מקור") : ""}</span>` : ""}</div>`;
+}
+function scanPane(){
+  const q = latestScan();
+  if (!q || !((Date.now() - Date.parse(q.finished_at || q.created_at)) / 864e5 < 7)) return "";
+  const s = q.scan, f = s.funds || [], dirs = s.directions || [], hot = s.hot_blocked || [];
+  const chip = (x, tone) => `<span class="chip ${tone}">${esc(x.name)} ${N(signed(x.lag50))}</span>`;
+  let body = `<div class="sc-h"><p>${esc(s.focus || "כל השוק")} · ${esc(stamp(q.finished_at || q.created_at))}.
+      SPY ${isNum(s.spy50) ? N(signed(s.spy50) + "%") : "–"} ב-50 ימי מסחר. שער הענף (שער 10) פתוח ב-${N(f.filter(x => x.open).length + "/" + f.length)} ענפים.</p>
+    ${f.length ? `<div class="chips">${f.slice(0, 5).map(x => chip(x, x.open ? "t-ok" : "t-bad")).join("")}</div>
+    <div class="chips">${f.slice(-4).reverse().map(x => chip(x, x.open ? "t-ok" : "t-bad")).join("")}</div>` : ""}</div>`;
+  body += dirs.map(d => `<div class="sc-d"><h3>${esc(d.name)}</h3>${d.why ? `<p>${esc(d.why)}</p>` : ""}
+    ${(d.sources || []).length ? `<p class="sc-src">${d.sources.slice(0, 4).map(u => ext(u)).join(" · ")}</p>` : ""}
+    ${(d.tickers || []).map(scanTicker).join("")}</div>`).join("");
+  if (hot.length) body += `<div class="sc-d"><h3>חמות אבל חסומות</h3><p>מה שהרשת קוראת לו חם עכשיו. דוח מלא עליהן יחזור כנראה "עמידה בצד", בגלל השער שבתווית.</p>${hot.map(scanTicker).join("")}</div>`;
+  if (q.result_md) body += `<div class="sc-d"><details class="pm"><summary>הסיכום של קליבר</summary><div class="md">${md(q.result_md)}</div></details></div>`;
+  body += `<p class="sc-foot">כל מניה כאן היא מועמדת לדוח מלא, לא המלצה. התווית היא בדיקה מהירה, והדוח יכול להגיע לפסק אחר.</p>`;
+  return pane("כיוונים מהסריקה", body, `${dirs.length} כיוונים`, "flush");
 }
 async function cancelAsk(id){
   const q = (S.queue || []).find(x => x._id === id);
@@ -2073,6 +2144,7 @@ document.addEventListener("click", e => {
     else if (b.dataset.feed){ S.feedF = b.dataset.feed; draw(); }
     else if (b.dataset.act === "markall"){ markAll(); draw(); }
     else if (b.dataset.act === "cancel"){ b.disabled = true; cancelAsk(b.dataset.q); }
+    else if (b.dataset.act === "scanreq"){ b.disabled = true; requestFromScan(b.dataset.t, b); }
     return;
   }
   const jb = e.target.closest("[data-jact],[data-jsort],[data-jstat],[data-jmonth],[data-jsector]");
@@ -2097,6 +2169,7 @@ document.addEventListener("click", e => {
 
 /* ── data: subscribe once per document or collection ── */
 $("askForm").addEventListener("submit", submitAsk);
+$("scanBtn").addEventListener("click", submitScan);
 $("tmForm").addEventListener("submit", submitTM);
 $("tm").addEventListener("click", e => {
   if (e.target === $("tm")) return closeTM();
@@ -2275,7 +2348,8 @@ const GHDB = (() => {
   async function writeQueue(id, op, v){
     if (op === "set"){
       const m = {kind: v.kind, text: v.text, ticker: v.ticker || null, call_id: v.call_id || null, created_at: v.created_at};
-      const title = v.kind === "ticker" ? v.ticker : v.kind === "question" ? `שאלה על ${v.ticker || "קריאה"}: ${v.text.slice(0, 70)}` : v.text.slice(0, 90);
+      const title = v.kind === "ticker" ? v.ticker : v.kind === "question" ? `שאלה על ${v.ticker || "קריאה"}: ${v.text.slice(0, 70)}`
+        : v.kind === "scan" ? `סריקה: ${v.text.slice(0, 80)}` : v.text.slice(0, 90);
       const body = `${v.text}\n\n<!-- caliber-request: the engine reads the block below -->\n\`\`\`json\n${JSON.stringify(m, null, 1)}\n\`\`\`\n`;
       const {data} = await gh(`${REPO}/issues`, {method: "POST", body: {title, body, labels: ["caliber-request"]}});
       issues = [data].concat(issues.filter(i => i.number !== data.number)); issuesV++;
