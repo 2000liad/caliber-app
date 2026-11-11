@@ -13,9 +13,9 @@
 ## איפה הנתונים, בריפו הפרטי
 | נתיב | מי כותב | מה |
 |---|---|---|
-| `app/data/<collection>.json` | המנוע בענן | `{id: doc}` לכל אוסף: calls, events, stats, screen, meta, live, positions, engine, queue, qa |
+| `app/data/<collection>.json` | המנוע בענן | `{id: doc}` לכל אוסף: calls, events, stats, meta, live, positions, engine, queue, qa |
 | `app/data/reports/<id>.json`, `app/data/outcomes/<id>.json` | המנוע בענן | מסמך לכל קריאה, נטען כשפותחים אותה |
-| `app/user/journal.json`, `app/user/settings.json` | הדף | יומן המסחר וגודל התיק |
+| `app/user/journal.json`, `app/user/settings.json` | הדף | יומן המסחר, גודל התיק, והגדרות העדכונים (`notify`, ממסך ההגדרות; המנוע קורא אותן לפני כל פוש) |
 | issues עם התווית `caliber-request` | הדף | בקשות ושאלות. פתיחה של issue מעירה את המנוע |
 | `relay/state/worker-lock.json` | המנוע בענן | קיים רק בזמן שהמנוע עובד |
 

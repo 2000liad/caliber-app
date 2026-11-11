@@ -18,7 +18,8 @@
    panes on one dark ground, a 1.65:1 two-column grid on desktop that stacks below
    900px. Single dark look by design (Liad: dark trading terminal), so the dark
    palette sits on bare :root. Stage 2: screens over the shared db; stage 3: the
-   ask box and queue; stage 4: the trading journal (journal/*, settings/portfolio). */
+   ask box and queue; stage 4: the trading journal (journal/*, settings/portfolio); 11.11: the settings
+   screen (settings/notify), and the screen tab is gone. */
 :root{
   color-scheme: dark;
   --bg:#0a0e13;
@@ -220,6 +221,29 @@ td a.tkr-l{font-family:var(--font-mono);font-weight:600;text-decoration:none;dir
 td a.tkr-l:hover{color:var(--accent)}
 td.wrapc{white-space:normal;min-width:16ch}
 tr.dim td{color:var(--muted)}
+
+/* ── settings ── */
+.nrow{display:grid;grid-template-columns:minmax(0,1fr) 84px 96px;gap:4px 12px;align-items:center;padding:11px 14px;border-top:1px solid var(--line)}
+.nrow:first-child{border-top:0}
+.nrow > .tgl,.nrow > .na{justify-self:center}
+.nmaster{grid-template-columns:minmax(0,1fr) auto;padding-block:14px}
+.nhead{padding-block:7px;font-size:var(--fs-2xs);color:var(--muted);letter-spacing:.04em;background:var(--sunk)}
+.nhead span:not(:first-child){text-align:center}
+.nlab{display:grid;gap:1px;min-width:0}
+.nlab b{font-size:var(--fs-sm);font-weight:600}
+.nlab span{font-size:var(--fs-xs);color:var(--muted)}
+.na{color:var(--muted);font-family:var(--font-mono)}
+.nfoot{display:grid;gap:6px;padding:11px 14px;border-top:1px solid var(--line);background:var(--sunk);border-radius:0 0 var(--r) var(--r)}
+.tgl{position:relative;display:inline-flex;cursor:pointer}
+.tgl input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
+.tgl .tgl-t{display:block;flex:none;width:36px;height:20px;border-radius:10px;background:var(--line-2);position:relative;transition:background .15s}
+.tgl .tgl-t::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:14px;height:14px;border-radius:50%;background:var(--fg-2);transition:transform .15s}
+.tgl input:checked + .tgl-t{background:var(--accent)}
+.tgl input:checked + .tgl-t::after{background:var(--on-accent);transform:translateX(-16px)}
+.tgl input:focus-visible + .tgl-t{outline:2px solid var(--accent);outline-offset:2px}
+.tgl input:disabled{cursor:default}
+.tgl input:disabled + .tgl-t{opacity:.35}
+@media (max-width:560px){.nrow{grid-template-columns:minmax(0,1fr) 48px 64px;gap:4px 8px}.nmaster{grid-template-columns:minmax(0,1fr) auto}}
 
 /* ── call screen ── */
 .back{font-size:var(--fs-sm);color:var(--fg-2);text-decoration:none;justify-self:start}
@@ -504,8 +528,8 @@ footer{font-size:var(--fs-xs);color:var(--muted);border-top:1px solid var(--line
       <a href="#home" data-tab="home">בית</a>
       <a href="#journal" data-tab="journal">יומן מסחר</a>
       <a href="#perf" data-tab="perf">ביצועים</a>
-      <a href="#screen" data-tab="screen">מה עובר היום</a>
       <a href="#feed" data-tab="feed">עדכונים <span class="cnt" id="feedCnt" hidden></span></a>
+      <a href="#settings" data-tab="settings">הגדרות</a>
     </nav>
     <div class="sync" id="syncStamp">מתחבר לגיטהאב…</div>
   </div>
@@ -557,8 +581,8 @@ footer{font-size:var(--fs-xs);color:var(--muted);border-top:1px solid var(--line
     <div class="dyn" id="journal-dyn"><p class="empty">טוען את יומן המסחר מהריפו…</p></div>
   </section>
   <section class="view" id="v-perf" aria-label="ביצועים" hidden></section>
-  <section class="view" id="v-screen" aria-label="מה עובר היום" hidden></section>
   <section class="view" id="v-feed" aria-label="עדכונים" hidden></section>
+  <section class="view" id="v-settings" aria-label="הגדרות" hidden></section>
   <footer>הכול חי בריפו הפרטי <span class="mono">caliber-relay</span>: מקור האמת של הקריאות הוא קבצי ה-jsonl ב-<span class="mono">trading/</span>, והמנוע בענן כותב מהם את מה שהמסכים קוראים ב-<span class="mono">app/data/</span>. יומן המסחר וגודל התיק נשמרים ב-<span class="mono">app/user/</span>, ישירות מהדף. כל בקשה או שאלה נפתחת כ-issue בריפו, והמנוע מתעורר עליה.
     <b>פגיעה</b> פירושה שהמחיר נגע ביעד בשלב כלשהו עד הדדליין, לפי שיא ושפל תוך-יומי. יום הקריאה עצמו לא נספר.
     אין כאן פעולת מסחר מול ברוקר, וזה לא ייעוץ השקעות. <button type="button" class="linkbtn" id="ghOut" hidden>התנתק מהמכשיר הזה</button></footer>
@@ -729,7 +753,7 @@ const REAL = {hard_exit:"יציאה מחייבת", partial:"מימוש חלקי"
 
 /* ── state ── */
 const S = {
-  db:null, dbState:"loading", meta:undefined, stats:undefined, screen:undefined, calls:null, events:null,
+  db:null, dbState:"loading", meta:undefined, stats:undefined, notify:undefined, calls:null, events:null,
   engine:undefined, queue:[], pending:[], report:{id:null, doc:undefined}, outcome:{id:null, doc:undefined},
   route:"home", callId:null, hist:"all", feedF:"all", errors:{},
   journal:null, portfolio:undefined, qa:[], callsRaw:null, live:null,
@@ -986,7 +1010,7 @@ function feedItem(e, opts = {}){
     </div>
   </div>`;
 }
-const sortedEvents = () => (S.events || []).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : String(a.ticker).localeCompare(String(b.ticker)));
+const sortedEvents = () => { const f = ntPrefs().feed; return (S.events || []).filter(e => feedShown(e, f)).sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : String(a.ticker).localeCompare(String(b.ticker))); };
 
 /* ── home ── */
 function vHome(){
@@ -1531,33 +1555,78 @@ function historyPane(closed){
   return pane("היסטוריית קריאות שנסגרו", body, `${rows.length} קריאות`, "flush");
 }
 
-/* ── screen ── */
-function vScreen(){
-  let h = `<div class="vh"><h1>מה עובר היום</h1><p>לכל טיקר שליעד הביא: האם הבנייה שהתנודתיות שלו נותנת עוברת את השערים היום.</p></div>`;
-  if (S.screen === undefined) return h + loading("את המסך");
-  if (!S.screen || !(S.screen.rows || []).length) return h + `<p class="empty">המנוע עוד לא בנה את המסך.</p>`;
-  const sc = S.screen, pass = sc.rows.filter(r => r.fits);
-  h += `<section class="pane"><div class="pb">
-      <div class="chips"><span class="chip t-info">אין תקרת תנודתיות: היא קובעת את גודל הפוזיציה, לא את הזכאות</span>
-        <span class="chip plain">היעד נגזר מכל מניה: פי ${N(sc.target_mult)} מהסטופ החוקי</span></div>
-      <p class="prose">הסטופ החוקי הוא הגבוה מבין ATR לנסיגה החציונית ל-21 יום, ולכן היעד לא יכול להיות קטן ממנה. מניה תנודתית מקבלת סטופ רחב ופוזיציה קטנה. עמודת הפוזיציה היא אחוז התיק שמשאיר הפסד בודד על 2% מהתיק.</p></div></section>`;
-  const rows = sc.rows.map(r => {
-    const c = latestCallFor(r.ticker), edge = (r.on_edge || []).length;
-    return `<tr class="${r.fits ? "" : "dim"}"${c ? ` data-href="call-${esc(c.id)}"` : ""}>
-      <td>${c ? `<a class="tkr-l" href="#call-${esc(c.id)}">${esc(r.ticker)}</a>` : `<span class="mono">${esc(r.ticker)}</span>`}</td>
-      <td>${N(num(r.drawdown, 1) + "%")}</td>
-      <td>${N(num(r.stop, 1) + "%")}</td>
-      <td>${r.fits ? N(num(r.target, 1) + "%") : "–"}</td>
-      <td>${r.fits ? N(num(r.hit, 1) + "%") : "–"}</td>
-      <td>${r.fits ? N(pct(r.ev, 2)) : "–"}</td>
-      <td>${r.fits ? N(num(r.margin, 1)) : "–"}</td>
-      <td><b class="num">${num(r.position, 0)}%</b></td>
-      <td class="wrapc ${r.fits ? (edge ? "t-warn" : "t-ok") : ""}">${esc(r.verdict)}</td></tr>`;
-  }).join("");
-  h += pane("המסך", `<div class="tbl"><table><thead><tr><th>מניה</th><th>נסיגה חציונית</th><th>סטופ חוקי</th><th>יעד</th><th>פגיעה</th><th>תוחלת</th><th>מרווח</th><th>פוזיציה</th><th>פסק</th></tr></thead><tbody>${rows}</tbody></table></div>`,
-    `${pass.length} מתוך ${sc.rows.length} עוברות · נכון ל-${dmy(sc.today)}`, "flush");
-  h += `<p class="note">מרווח = כמה נקודות שיעור הפגיעה יכול לרדת לפני שהעסקה מפסידה (שערים 8 ו-9, סף 8). "על הסף" = עבר בפחות מ-2 נק׳ מעל הסף. שורה אפורה = הבנייה לא עוברת היום. לחיצה על שורה פותחת את הקריאה האחרונה על הטיקר.</p>`;
-  return h;
+/* ── settings: which updates reach Liad, and where (11.11). settings/notify in app/user/settings.json:
+   the page writes the whole doc, and the engine reads the push half before every PushNotification
+   (relay/tools/appdata.py notify: the same keys and defaults). A key missing from the doc is its default. ── */
+const NOTIFY = [
+  // key, name, what it is, the feed's event kinds, push by default
+  ["report",   "דוח מוכן",             "קליבר סיים דוח על טיקר ששלחת",                     ["new_call"], true],
+  ["answer",   "תשובה מוכנה",           "תשובה לשאלה ששאלת על קריאה",                       ["answer_ready"], true],
+  ["scan",     "סריקת שוק מוכנה",       "הכיוונים והמועמדות מסריקה שביקשת",                  ["scan_ready"], true],
+  ["closed",   "קריאה נסגרה",           "נגעה ביעד, נעצרה בסטופ או הגיעה לדדליין",            ["closed", "target_hit", "stop_hit"], true],
+  ["entry",    "אזור הכניסה",           "המחיר נכנס לאזור הכניסה של קריאה, או מתקרב אליו",     ["entry_zone_live", "entry_zone_near"], true],
+  ["invalid",  "רמת ביטול התזה נפרצה",  "המחיר עבר את הרמה שמבטלת את התזה",                  ["invalidation_breached"], true],
+  ["tradable", "קריאה הפכה לכדאית",     "קריאה שנפסלה עוברת עכשיו את השערים",                ["gate_now_passes", "became_tradable"], true],
+  ["verdict",  "הפסק השתנה",            "הבדיקה היומית שינתה את הפסק של קריאה פתוחה",         [], true],
+  ["move",     "תנועה חריגה וחדשות",    "תנועת מחיר חריגה, או חדשות שנבדקו על קריאה פתוחה",    ["big_move", "note"], false],
+  ["remind",   "תזכורות בדיקה",         "הנחה או בדיקה חוזרת שהגיעו למועדן",                 ["assumption_due", "reassess_due"], false],
+  ["fail",     "תקלה במנוע",            "ריצה של המנוע בענן נכשלה",                          ["engine_error"], true]
+];
+const KIND_CAT = Object.fromEntries(NOTIFY.flatMap(([k, , , kinds]) => kinds.map(x => [x, k])));
+const NT = {draft: null, t: 0, chain: Promise.resolve(), msg: "", tone: ""};
+function ntPrefs(){
+  const d = NT.draft || S.notify || {}, push = {}, feed = {};
+  for (const [k, , , , def] of NOTIFY){
+    push[k] = typeof (d.push || {})[k] === "boolean" ? d.push[k] : def;
+    feed[k] = typeof (d.feed || {})[k] === "boolean" ? d.feed[k] : true;
+  }
+  return {push_on: d.push_on !== false, push, feed};
+}
+/* A kind switched off for the feed stays out of the feed, the home pane and the count. */
+const feedShown = (e, feed) => { const c = KIND_CAT[e.kind]; return !c || feed[c]; };
+function ntMsg(t, tone = ""){
+  NT.msg = t; NT.tone = tone;
+  const el = $("ntMsg"); if (!el) return;
+  el.textContent = t; if (tone) el.dataset.tone = tone; else delete el.dataset.tone;
+}
+const sw = (id, on, label, off) => `<label class="tgl"><input type="checkbox" data-nt="${id}"${on ? " checked" : ""}${off ? " disabled" : ""} aria-label="${esc(label)}"><span class="tgl-t" aria-hidden="true"></span></label>`;
+function vSettings(){
+  let h = `<div class="vh"><h1>הגדרות</h1><p>על מה תקבל עדכונים, ואיפה. ההגדרות נשמרות בריפו, אז הן חלות על כל המכשירים ועל המנוע בענן.</p></div>`;
+  if (S.notify === undefined) return h + loading("את ההגדרות");
+  const p = ntPrefs(), ro = !S.db || S.canWrite === false;
+  const nPush = NOTIFY.filter(([k]) => p.push[k]).length;
+  let body = `<div class="nrow nmaster"><div class="nlab"><b>התראות לנייד</b><span>${p.push_on
+      ? "המנוע שולח התראה אחת בסוף ריצה, רק על מה שמסומן בעמודה \"לנייד\"."
+      : "כבוי: המנוע לא שולח שום התראה. האפליקציה ממשיכה להתעדכן כרגיל."}</span></div>${sw("on", p.push_on, "התראות לנייד", ro)}</div>
+    <div class="nrow nhead"><span>סוג העדכון</span><span>לנייד</span><span>בטאב העדכונים</span></div>`;
+  for (const [k, name, what, kinds] of NOTIFY){
+    body += `<div class="nrow"><div class="nlab"><b>${esc(name)}</b><span>${esc(what)}</span></div>
+      ${sw("push:" + k, p.push[k], name + ": התראה לנייד", ro || !p.push_on)}
+      ${kinds.length ? sw("feed:" + k, p.feed[k], name + ": בטאב העדכונים", ro) : `<span class="na" title="על זה אין עדכון באפליקציה, רק התראה">–</span>`}</div>`;
+  }
+  const u = S.notify && S.notify.updated_at;
+  const msg = NT.msg || (ro ? "לטוקן הזה אין הרשאת כתיבה לריפו, אז אפשר רק לראות." : u ? `נשמר לאחרונה ${stamp(u)}.` : "עוד לא שינית כלום: אלה ברירות המחדל.");
+  body += `<div class="nfoot"><p class="askmsg" id="ntMsg" aria-live="polite"${NT.msg && NT.tone ? ` data-tone="${NT.tone}"` : ""}>${esc(msg)}</p>
+    <p class="note">כל שינוי נשמר מיד, והמנוע פועל לפיו מהריצה הבאה. תקלה שבה המנוע לא מצליח אפילו להוריד את הריפו מגיעה כהתראה גם כשהכול כבוי, כי אז אין לו גישה להגדרות.</p></div>`;
+  return h + pane("עדכונים והתראות", body, p.push_on ? `${nPush} מתוך ${NOTIFY.length} לנייד` : "התראות כבויות", "flush");
+}
+function ntSet(id, on){
+  const p = ntPrefs(), [side, k] = id.split(":");
+  if (id === "on") p.push_on = on; else p[side][k] = on;
+  NT.draft = p; ntMsg("שומר…");
+  clearTimeout(NT.t);
+  NT.t = setTimeout(() => { NT.chain = NT.chain.then(ntSave); }, 600);   // a burst of taps is one commit
+}
+async function ntSave(){
+  const v = NT.draft;
+  if (!v || !S.db) return;
+  try {
+    await S.db.doc("settings/notify").set(Object.assign({}, v, {updated_at: isoLocal()}));
+    if (NT.draft === v){ NT.draft = null; ntMsg("נשמר. המנוע יפעל לפי זה מהריצה הבאה.", "ok"); }
+  } catch (err) {
+    ntMsg(err && err.code === "conflict" ? "ההגדרות השתנו במקביל ממכשיר אחר. נסה שוב." : writeErr(err), "bad");
+  }
+  render();
 }
 
 /* ── feed ── */
@@ -2071,13 +2140,13 @@ async function askDeep(e){
 }
 
 /* ── render ── */
-const VIEWS = {home: vHome, call: vCall, journal: vJournal, perf: vPerf, screen: vScreen, feed: vFeed};
+const VIEWS = {home: vHome, call: vCall, journal: vJournal, perf: vPerf, feed: vFeed, settings: vSettings};
 let pending = 0;
 function render(){ if (pending) return; pending = setTimeout(() => { pending = 0; draw(); }, 16); }
 function draw(){
   const tab = S.route === "call" ? "" : S.route;
   document.querySelectorAll(".tabs a").forEach(a => { if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
-  const un = S.events ? S.events.filter(unread).length : 0;
+  const un = S.events ? sortedEvents().filter(unread).length : 0;
   const fc = $("feedCnt"); fc.textContent = un; fc.hidden = !un;
   const m = S.meta;
   /* Two clocks: the Mac's full sync (meta/sync) and the cloud's daily evaluation (live/<day>),
@@ -2102,7 +2171,7 @@ function draw(){
   drawQA();
 }
 
-/* ── routing: bare #tokens only (#home, #perf, #screen, #feed, #call-<id>) ── */
+/* ── routing: bare #tokens only (#home, #perf, #feed, #settings, #call-<id>) ── */
 const ID_OK = /^[A-Za-z0-9_\-.~:@+]{1,200}$/;
 function parse(h){
   h = String(h || "").replace(/^#/, "");
@@ -2194,6 +2263,13 @@ $("tmTicker").addEventListener("input", () => {
 });
 $("jSearch").addEventListener("input", () => { S.j.q = $("jSearch").value; render(); });
 $("pfForm").addEventListener("submit", submitPf);
+document.addEventListener("change", e => {
+  const t = e.target.closest("[data-nt]");
+  if (!t) return;
+  ntSet(t.dataset.nt, t.checked); draw();
+  const el = document.querySelector(`[data-nt="${t.dataset.nt}"]`);   // the view was redrawn: keep focus on the switch
+  if (el) el.focus({preventScroll: true});
+});
 $("pfInput").addEventListener("input", () => { $("pfInput").dataset.dirty = "1"; pfMsg(""); });
 apply(parse(location.hash));
 
@@ -2419,7 +2495,6 @@ async function connect(){
   const one = (path, key) => db.doc(path).onSnapshot(ok(path, s => { S[key] = s.exists ? s.data() : null; render(); }), fail(path));
   one("meta/sync", "meta");
   one("stats/summary", "stats");
-  one("screen/current", "screen");
   db.collection("calls").limit(1000).onSnapshot(ok("calls", q => { S.callsRaw = q.docs.map(d => Object.assign({_id: d.id}, d.data())); mergeLive(); render(); }), fail("calls"));
   db.collection("live").limit(20).onSnapshot(q => {
     S.live = q.docs.map(d => d.data()).sort((a, b) => String(b.day).localeCompare(String(a.day)))[0] || null; mergeLive(); render();
@@ -2435,6 +2510,8 @@ async function connect(){
   // the trading journal and the portfolio size: written here, read by the cloud engine
   db.collection("journal").limit(1000).onSnapshot(ok("journal", q => { S.journal = q.docs.map(d => Object.assign({_id: d.id}, d.data())); render(); }), fail("journal"));
   db.doc("settings/portfolio").onSnapshot(s => { S.portfolio = s.exists ? s.data() : null; pfFill(); render(); }, () => {});
+  // which updates reach Liad, and where: written on the settings screen, read by the engine before a push
+  db.doc("settings/notify").onSnapshot(s => { S.notify = s.exists ? s.data() : null; render(); }, () => { S.notify = null; render(); });
   // last closes of the open positions: the engine's sync writes them, the page only reads
   db.doc("positions/prices").onSnapshot(s => { S.px = s.exists ? s.data() : null; render(); }, () => { S.px = null; render(); });
   // instant answers saved in the claude.ai days; questions since then live in queue/ (kind "question")
